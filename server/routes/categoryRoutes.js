@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
   if (color) whereClause.email = color;
 
   try {
-    const records = await Provider.findAll({ where: whereClause });
+    const records = await Category.findAll({ where: whereClause });
     res.json(records);
   } catch (error) {
     res.status(500).json({ error: 'Errore nel recupero dei fornitori' });
