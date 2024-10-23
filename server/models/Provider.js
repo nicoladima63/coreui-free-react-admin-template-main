@@ -14,10 +14,13 @@ const Provider = sequelize.define('Provider', {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  color: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  }
 });
+
+const syncDatabase = async () => {
+  await Provider.sync();
+};
+
+syncDatabase();
+
 
 module.exports = Provider;

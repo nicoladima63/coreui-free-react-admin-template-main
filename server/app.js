@@ -1,12 +1,17 @@
 const express = require('express');
 const cors = require('cors');
-const sequelize  = require('./database'); // Connessione al DB
-const userRoutes = require('./routes/userRoutes');
-const taskRoutes = require('./routes/taskRoutes');
+const sequelize = require('./database'); // Connessione al DB
+
 const pcRoutes = require('./routes/pcRoutes');
-const stepRoutes = require('./routes/stepRoutes');
 const workRoutes = require('./routes/workRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
 const providerRoutes = require('./routes/providerRoutes');
+const userRoutes = require('./routes/userRoutes');
+const stepRoutes = require('./routes/stepRoutes');
+const taskRoutes = require('./routes/taskRoutes');
+const stepTempRoutes = require('./routes/stepTempRoutes');
+
+
 require('dotenv').config(); // Assicurati che le variabili di ambiente siano caricate
 
 const app = express();
@@ -16,12 +21,14 @@ app.use(cors());
 app.use(express.json());
 
 // Rotte API
-app.use('/api/users', userRoutes);
-app.use('/api/tasks', taskRoutes);
 app.use('/api/pcs', pcRoutes); 
 app.use('/api/works', workRoutes); 
+app.use('/api/categories', categoryRoutes); 
 app.use('/api/providers', providerRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/steps', stepRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/stepstemp', stepTempRoutes);
 
 // Rotta di test per verificare che il server funzioni
 app.get('/api/test', (req, res) => {

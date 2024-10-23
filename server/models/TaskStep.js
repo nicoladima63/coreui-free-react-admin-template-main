@@ -1,12 +1,12 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../database');
 
-const TaskStep = sequelize.define('TaskStep', {
-  task_id: {
+const Step = sequelize.define('Step', {
+  workid: {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
-  step_description: {
+  name: {
     type: DataTypes.STRING,
     allowNull: false,
   },
@@ -14,10 +14,17 @@ const TaskStep = sequelize.define('TaskStep', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
-  assigned_user_id: {
+  userid: {
     type: DataTypes.INTEGER,
     allowNull: true,
   }
 });
 
-module.exports = TaskStep;
+const syncDatabase = async () => {
+  await Step.sync();
+};
+
+syncDatabase();
+
+
+module.exports = Step;

@@ -1,30 +1,30 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../database');
 
-const Task = sequelize.define('Task', {
-  patient: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
+const StepTemp = sequelize.define('StepTemp', {
   workid: {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
-  deliveryDate: {
-    type: DataTypes.DATE,
+  name: {
+    type: DataTypes.STRING,
     allowNull: false,
   },
   completed: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  userid: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  }
 });
 
 const syncDatabase = async () => {
-  await Task.sync();
+  await StepTemp.sync();
 };
 
 syncDatabase();
 
 
-module.exports = Task;
+module.exports = StepTemp;

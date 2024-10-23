@@ -1,31 +1,32 @@
 const express = require('express');
-const TaskStep = require('../models/TaskStep');
-const authenticateToken = require('../middleware/authMiddleware'); // Importa il middleware
+const Category = require('../models/Category'); // Modello fornitori
+const authenticateToken = require('../middleware/authMiddleware'); // Middleware di autenticazione
 const router = express.Router();
 
-//get steps for a task
+// GET - Recupera i fornitori con filtri opzionali
 router.get('/', async (req, res) => {
-  const { workid, name, userid, completed } = req.query;
+  const { name, color } = req.query;
 
   let whereClause = {};
-  if (workid) whereClause.workid = workid;
   if (name) whereClause.name = name;
-  if (userid) whereClause.userid = assigned_user_id;
-  if (completed) whereClause.completed = userid;
-
-  const records = await TaskStep.findAll({ where: whereClause });
-  res.json(records);
-});
-
-router.post('/', async (req, res) => {
-  const { workid, name, userid, completed } = req.body;
+  if (color) whereClause.email = color;
 
   try {
-    const record = await TaskStep.create({
-      workid,
+    const records = await Provider.findAll({ where: whereClause });
+    res.json(records);
+  } catch (error) {
+    res.status(500).json({ error: 'Errore nel recupero dei fornitori' });
+  }
+});
+
+// POST - Crea un nuovo fornitore
+router.post('/', async (req, res) => {
+  const { name, color } = req.body;
+
+  try {
+    const record = await Category.create({
       name,
-      userid,
-      completed,
+      color,
     });
     res.status(201).json(record);
   } catch (error) {
@@ -34,24 +35,23 @@ router.post('/', async (req, res) => {
   }
 });
 
+// PUT - Modifica un fornitore esistente
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { workid, name, userid, completed } = req.body;
+  const { name,color } = req.body;
 
   try {
     // Trova il fornitore per ID e aggiornalo
-    const record = await TaskStep.findByPk(id);
+    const record = await Category.findByPk(id);
     if (!record) {
-      return res.status(404).json({ error: 'Record non trovato' });
+      return res.status(404).json({ error: 'Fornitore non trovato' });
     }
 
     // Aggiorna i campi forniti
-    record.workid = workid || record.workid;
     record.name = name || record.name;
-    record.userid = userid || record.userid;
-    record.completed = completed || record.completed;
+    record.email = color || record.color;
 
-    await record.save();
+    await provider.save();
     res.json(record); // Restituisci il fornitore aggiornato
   } catch (error) {
     console.error(error);
@@ -59,17 +59,18 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// DELETE - Elimina un fornitore
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const record = await TaskStep.findByPk(id);
+    const record = await Category.findByPk(id);
     if (!record) {
-      return res.status(404).json({ error: 'Record non trovato' });
+      return res.status(404).json({ error: 'Fornitore non trovato' });
     }
 
     await record.destroy(); // Elimina il record
-    res.json({ message: 'Record eliminato con successo' });
+    res.json({ message: 'Fornitore eliminato con successo' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Errore durante l\'eliminazione del record' });

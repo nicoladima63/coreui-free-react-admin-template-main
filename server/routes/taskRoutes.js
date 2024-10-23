@@ -6,73 +6,74 @@ const router = express.Router();
 
 // Get all tasks (filtrati per PC e utente)
 router.get('/', async (req, res) => {
-  const { pc_id, user_id, status } = req.query;
+  const { patient, workid, deliveryDate, completed } = req.query;
 
   let whereClause = {};
-  if (pc_id) whereClause.pc_id = pc_id;
-  if (user_id) whereClause.assigned_user_id = user_id;
-  if (status) whereClause.status = status;
+  if (patient) whereClause.patient = patient;
+  if (workid) whereClause.workid = workid;
+  if (completed) whereClause.completed = completed;
 
-  const tasks = await Task.findAll({ where: whereClause });
-  res.json(tasks);
+  const records = await Task.findAll({ where: whereClause });
+  res.json(records);
 });
 
-
-
-// Get all tasks (filtrati per PC e utente) con auth
-//router.get('/', authenticateToken, async (req, res) => {
-//  const { pc_id, user_id, status } = req.query;
-
-//  let whereClause = {};
-//  if (pc_id) whereClause.pc_id = pc_id;
-//  if (user_id) whereClause.assigned_user_id = user_id;
-//  if (status) whereClause.status = status;
-
-//  const tasks = await Task.findAll({ where: whereClause });
-//  res.json(tasks);
-//});
-
-// Crea un nuovo task -- Protetto da JWT
-//router.post('/', authenticateToken, async (req, res) => {
-//  const { description, pc_id, assigned_user_id } = req.body;
-//  const task = await Task.create({ description, pc_id, assigned_user_id });
-//  res.json(task);
-//});
-
-// Crea un nuovo task
 router.post('/', async (req, res) => {
-  const { description, pc_id, assigned_user_id } = req.body;
-  const task = await Task.create({ description, pc_id, assigned_user_id });
-  res.json(task);
-});
+  const { patient, workid, deliveryDate, completed } = req.body;
 
-// Aggiorna lo stato di un task
-router.put('/:id', async (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body;
-
-  const task = await Task.findByPk(id);
-  if (task) {
-    task.status = status;
-    await task.save();
-    res.json(task);
-  } else {
-    res.status(404).json({ error: 'Task non trovato' });
+  try {
+    const record = await Task.create({
+      patient,
+      workid,
+      deliveryDate,
+      completed,
+    });
+    res.status(201).json(record);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Errore nella creazione del record' });
   }
 });
 
-// Aggiunge una nuova fase a un task
-router.post('/:id/steps', async (req, res) => {
+router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { step_description, assigned_user_id } = req.body;
+  const { patient, workid, deliveryDate, completed } = req.body;
 
-  const taskStep = await TaskStep.create({
-    task_id: id,
-    step_description,
-    assigned_user_id,
-  });
+  try {
+    // Trova il fornitore per ID e aggiornalo
+    const record = await Task.findByPk(id);
+    if (!record) {
+      return res.status(404).json({ error: 'Record non trovato' });
+    }
 
-  res.json(taskStep);
+    // Aggiorna i campi forniti
+    record.patient = patient || record.patient;
+    record.workid = workid || record.workid;
+    record.deliveryDate = deliveryDate || record.deliveryDate;
+    record.completed = completed || record.completed;
+
+    await record.save();
+    res.json(record); // Restituisci il fornitore aggiornato
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Errore durante l\'aggiornamento del record' });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const record = await Task.findByPk(id);
+    if (!record) {
+      return res.status(404).json({ error: 'Record non trovato' });
+    }
+
+    await record.destroy(); // Elimina il record
+    res.json({ message: 'Record eliminato con successo' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Errore durante l\'eliminazione del record' });
+  }
 });
 
 module.exports = router;

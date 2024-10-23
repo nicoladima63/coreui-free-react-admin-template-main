@@ -13,8 +13,8 @@ router.get('/', async (req, res) => {
   if (phone) whereClause.phone = phone;
 
   try {
-    const providers = await Provider.findAll({ where: whereClause });
-    res.json(providers);
+    const records = await Provider.findAll({ where: whereClause });
+    res.json(records);
   } catch (error) {
     res.status(500).json({ error: 'Errore nel recupero dei fornitori' });
   }
@@ -40,23 +40,22 @@ router.post('/', async (req, res) => {
 // PUT - Modifica un fornitore esistente
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, email, phone,color } = req.body;
+  const { name, email, phone } = req.body;
 
   try {
     // Trova il fornitore per ID e aggiornalo
-    const provider = await Provider.findByPk(id);
-    if (!provider) {
+    const record = await Provider.findByPk(id);
+    if (!record) {
       return res.status(404).json({ error: 'Fornitore non trovato' });
     }
 
     // Aggiorna i campi forniti
-    provider.name = name || provider.name;
-    provider.email = email || provider.email;
-    provider.phone = phone || provider.phone;
-    provider.color = color || provider.color;
+    record.name = name || record.name;
+    record.email = email || record.email;
+    record.phone = phone || record.phone;
 
-    await provider.save();
-    res.json(provider); // Restituisci il fornitore aggiornato
+    await record.save();
+    res.json(record); // Restituisci il fornitore aggiornato
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Errore durante l\'aggiornamento del record' });
@@ -68,13 +67,13 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const provider = await Provider.findByPk(id);
-    if (!provider) {
-      return res.status(404).json({ error: 'Fornitore non trovato' });
+    const record = await Provider.findByPk(id);
+    if (!record) {
+      return res.status(404).json({ error: 'Record non trovato' });
     }
 
-    await provider.destroy(); // Elimina il record
-    res.json({ message: 'Fornitore eliminato con successo' });
+    await record.destroy(); // Elimina il record
+    res.json({ message: 'Rcord eliminato con successo' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Errore durante l\'eliminazione del record' });

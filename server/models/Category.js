@@ -1,26 +1,22 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../database');
 
-const Work = sequelize.define('Work', {
+const Category = sequelize.define('Category', {
   name: {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  providerid: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-  },
-  categoryid: {
-    type: DataTypes.INTEGER,
+  color: {
+    type: DataTypes.STRING,
     allowNull: false,
   },
 });
 
 const syncDatabase = async () => {
-  await Work.sync();
+  await Category.sync();
 };
 
 syncDatabase();
 
 
-module.exports = Work;
+module.exports = Category;
