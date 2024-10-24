@@ -35,6 +35,10 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'Server funzionante correttamente!' });
 });
 
+//app.get('/setup', (req, res) => {
+//  res.render('setup'); // O come gestisci il rendering delle tue pagine
+//});
+
 // Inizializzazione del database e avvio del server
 sequelize.sync().then(() => {
   app.listen(PORT, () => {
