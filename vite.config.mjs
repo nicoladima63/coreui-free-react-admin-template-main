@@ -8,6 +8,8 @@ export default defineConfig(() => {
     base: './',
     build: {
       outDir: 'build',
+      sourcemap: true, // Abilita le source maps per il debug
+      minify: false,  
     },
     css: {
       postcss: {
