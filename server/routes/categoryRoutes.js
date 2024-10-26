@@ -1,9 +1,9 @@
 const express = require('express');
-const Category = require('../models/Category'); // Modello fornitori
+const Category = require('../models/Category'); // Modello
 const authenticateToken = require('../middleware/authMiddleware'); // Middleware di autenticazione
 const router = express.Router();
 
-// GET - Recupera i fornitori con filtri opzionali
+// GET - Recupera i records con filtri opzionali
 router.get('/', async (req, res) => {
   const { name, color } = req.query;
 
@@ -15,11 +15,11 @@ router.get('/', async (req, res) => {
     const records = await Category.findAll({ where: whereClause });
     res.json(records);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero dei fornitori' });
+    res.status(500).json({ error: 'Errore nel recupero dei records' });
   }
 });
 
-// POST - Crea un nuovo fornitore
+// POST - Crea 
 router.post('/', async (req, res) => {
   const { name, color } = req.body;
 
@@ -35,31 +35,31 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT - Modifica un fornitore esistente
+// PUT - Modifica
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const { name,color } = req.body;
 
   try {
-    // Trova il fornitore per ID e aggiornalo
+    // Trova  per ID e aggiorna
     const record = await Category.findByPk(id);
     if (!record) {
-      return res.status(404).json({ error: 'Fornitore non trovato' });
+      return res.status(404).json({ error: 'Record non trovato' });
     }
 
     // Aggiorna i campi forniti
     record.name = name || record.name;
     record.email = color || record.color;
 
-    await provider.save();
-    res.json(record); // Restituisci il fornitore aggiornato
+    await record.save();
+    res.json(record); // Restituisci il record aggiornato
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Errore durante l\'aggiornamento del record' });
   }
 });
 
-// DELETE - Elimina un fornitore
+// DELETE - Elimina
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 

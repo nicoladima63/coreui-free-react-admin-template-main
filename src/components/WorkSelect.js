@@ -5,7 +5,7 @@ const WorkSelect = ({ onSelect }) => {
   return (
     <SelectComponent
       endpoint="http://localhost:5000/api/works"
-      label="Work"
+      label="un valore"
       onSelect={onSelect}
     />
   );

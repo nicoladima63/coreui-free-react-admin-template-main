@@ -9,6 +9,7 @@ const Users = React.lazy(() => import('./views/users/Users'))
 const Works = React.lazy(() => import('./views/works/Works'))
 const Tasks = React.lazy(() => import('./views/works/Tasks'))
 const Provider = React.lazy(() => import('./views/provider/Provider'))
+const Category = React.lazy(() => import('./views/categories/Category'))
 const Steps = React.lazy(() => import('./views/steps/Steps'))
 const Setup = React.lazy(() => import('./views/wizard/Setup'))
 // Base
@@ -68,6 +69,7 @@ const routes = [
   { path: '/task', name: 'Tasks', element: Tasks, exact: true },
   { path: '/provider', name: 'Provider', element: Provider, exact: true },
   { path: '/steps', name: 'Steps', element: Steps, exact: true },
+  { path: '/categories', name: 'Categorie', element: Category, exact: true },
   { path: '/setup', name: 'SetUp', element: Setup, exact: true },
   { path: '/theme', name: 'Theme', element: Colors, exact: true },
   { path: '/theme/colors', name: 'Colors', element: Colors },

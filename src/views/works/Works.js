@@ -4,29 +4,30 @@ import {
   CCard,
   CCardBody,
   CCardHeader,
+  CButton, CButtonGroup,
   CCol,
   CRow,
   CTable,
   CTableBody,
-  CTableCaption,
-  CTableDataCell,
   CTableHead,
   CTableHeaderCell,
   CTableRow,
+  CTableDataCell,
+  CSpinner,
+  CAlert,
 } from '@coreui/react'
-import { DocsExample } from 'src/components'
+import ModalNew from "./ModalWork";
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
-const Works = () => {
-  const [loading, setLoading] = useState(true) // Stato per lo spinner
-  const [works, setWorks] = useState([]) // Tutti i task
-  const [filteredWorks, setFilteredWorks] = useState([]) // Task filtrati
-  const [selectedFilter, setSelectedFilter] = useState('all') // Filtro selezionato
-  const [selectedWorkId, setSelectedWorkId] = useState(null) // Task selezionato per le fasi
-  const [error, setError] = useState(null) // Stato per gestire eventuali errori
+const WorksView = () => {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
-  const loadData = () => {
+  const fetchData = () => {
     setLoading(true)
     setError(null)
     axios
@@ -34,8 +35,7 @@ const Works = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       })
       .then((response) => {
-        setWorks(response.data)
-        setFilteredWorks(response.data) // Inizialmente mostra tutti i task
+        setItems(response.data) // Inizialmente mostra tutti i task
         setLoading(false) // Fine caricamento
       })
       .catch((error) => {
@@ -47,54 +47,102 @@ const Works = () => {
 
   // Carica i task al primo rendering
   useEffect(() => {
-    loadData()
+    fetchData()
   }, [])
+
+  const handleOpenModal = (item = null) => {
+    setSelectedItem(item); // Passiamo l'elemento selezionato o `null` per un nuovo provider
+    setIsModalVisible(true);
+  };
+
+  const handleDeleteItem = async (id) => {
+    if (confirm('Sei sicuro di voler eliminare questo record?')) {
+      try {
+        await axios.delete(`${apiUrl}/api/works/${id}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        fetchData();
+      } catch (error) {
+        console.error('Errore durante l\'eliminazione del record:', error);
+      }
+    }
+
+  };
 
 
   return (
     <CRow>
       <CCol xs={12}>
         <CCard className="mb-4">
-          <CCardHeader>Works Table 
+          <CCardHeader>
+            Gestione Lavorazioni
+            <div style={{ display: 'flex', justifyContent: 'space-between', margin: '10px 0' }}>
+              <CButtonGroup>
+                <CButton color="primary" className="mb-3" size="sm" onClick={() => handleOpenModal()}>
+                  Nuovo
+                </CButton>
+                <CButton color="info" className="mb-3" size="sm" onClick={fetchData}>
+                  Reload
+                </CButton>
+              </CButtonGroup>
+            </div>
           </CCardHeader>
           <CCardBody>
-            <p className="text-body-secondary small">
-              Elenco delle lavorazioni inserite nel database.
-            </p>
-              <CTable>
+            {loading ? (
+              <div className="text-center">
+                <CSpinner color="primary" />
+              </div>
+            ) : error ? (
+              <CAlert color="danger" className="text-center">
+                {error}
+              </CAlert>
+            ) : items.length === 0 ? (
+              <CAlert color="warning" className="text-center">
+                Nessun fornitore disponibile.
+              </CAlert>
+            ) : (
+              <CTable striped responsive>
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell scope="col">#ID</CTableHeaderCell>
                     <CTableHeaderCell scope="col">Nome</CTableHeaderCell>
-                    <CTableHeaderCell scope="col">Cognome</CTableHeaderCell>
-                    <CTableHeaderCell scope="col">Ruolo</CTableHeaderCell>
+                    <CTableHeaderCell scope="col">Fornitore</CTableHeaderCell>
+                    <CTableHeaderCell scope="col">Categoria</CTableHeaderCell>
                   </CTableRow>
                 </CTableHead>
-                <CTableBody>
-                  <CTableRow>
-                    <CTableHeaderCell scope="row">1</CTableHeaderCell>
-                    <CTableDataCell>wNicola</CTableDataCell>
-                    <CTableDataCell>wDi Martino</CTableDataCell>
-                    <CTableDataCell>wTitolare</CTableDataCell>
-                  </CTableRow>
-                  <CTableRow>
-                    <CTableHeaderCell scope="row">2</CTableHeaderCell>
-                    <CTableDataCell>wCristina</CTableDataCell>
-                    <CTableDataCell>wBaldi</CTableDataCell>
-                    <CTableDataCell>wSegretaria</CTableDataCell>
-                  </CTableRow>
-                  <CTableRow>
-                    <CTableHeaderCell scope="row">3</CTableHeaderCell>
-                  <CTableDataCell>Cristina</CTableDataCell>
-                  <CTableDataCell>Ponzecchi</CTableDataCell>
-                  <CTableDataCell>Assistente</CTableDataCell>
-                  </CTableRow>
-                </CTableBody>
+                      <CTableBody>
+                        {items.map((item) => (
+                          <CTableRow key={item.id}>
+                            <CTableDataCell>{item.id}</CTableDataCell>
+                            <CTableDataCell>{item.name}</CTableDataCell>
+                            <CTableDataCell>{item.providerid}</CTableDataCell>
+                            <CTableDataCell>{item.categoryid}</CTableDataCell>
+                            <CTableDataCell>
+                              <div style={{ width: 50, height: 30, backgroundColor: item.color }} />
+                            </CTableDataCell>
+                            <CTableDataCell className="text-end">
+                              <CButton color="warning" className="me-2" size="sm" onClick={() => handleOpenModal(item)}>
+                                Modifica
+                              </CButton>
+                              <CButton color="danger" size="sm" onClick={() => handleDeleteItem(item.id)}>
+                                Elimina
+                              </CButton>
+                            </CTableDataCell>
+                          </CTableRow>
+                        ))}
+                      </CTableBody>
               </CTable>
+            )}
           </CCardBody>
         </CCard>
       </CCol>
+      <ModalNew
+        visible={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
+        item={selectedItem} // Passiamo l'item selezionato alla modal
+        refreshData={fetchData} // Funzione per aggiornare i dati dopo l'inserimento o la modifica
+      />
     </CRow>
   )
 };
-export default Works;
+export default WorksView;

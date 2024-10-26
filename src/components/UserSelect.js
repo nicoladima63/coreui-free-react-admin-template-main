@@ -5,7 +5,7 @@ const UserSelect = ({ onSelect }) => {
   return (
     <SelectComponent
       endpoint="http://localhost:5000/api/users" // L'endpoint per gli utenti
-      label="Utente"
+      label="un valore"
       onSelect={onSelect}
     />
   );

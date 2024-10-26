@@ -12,7 +12,7 @@ import {
 } from '@coreui/react';
 import PCSelect from '../../components/PCSelect';
 
-const ModalUser = ({ visible, onClose,onReload }) => {
+const ModalUser = ({ visible, onClose, onReload }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -46,7 +46,7 @@ const ModalUser = ({ visible, onClose,onReload }) => {
       .then((response) => {
         console.log(response.data);
         onClose();
-        onRefresh();
+        onReload();
         resetForm();
 
       })
@@ -65,32 +65,32 @@ const ModalUser = ({ visible, onClose,onReload }) => {
       </CModalHeader>
       <CModalBody>
         <CForm onSubmit={handleSubmit}>
-        <CFormLabel>Nome</CFormLabel>
-        <CFormInput
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="ambrogietto"
-          required
-        />
-        <CFormLabel>Email</CFormLabel>
-        <CFormInput
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="example@gmail.com"
-          required
-        />
-        <CFormLabel>Password</CFormLabel>
-        <CFormInput
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="kjadiube35EFG"
-          required
-        />
-        <CFormLabel>Postazione</CFormLabel>
-        <PCSelect onSelect={handleSelect} />
+          <CFormLabel>Nome</CFormLabel>
+          <CFormInput
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="ambrogietto"
+            required
+          />
+          <CFormLabel>Email</CFormLabel>
+          <CFormInput
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="example@gmail.com"
+            required
+          />
+          <CFormLabel>Password</CFormLabel>
+          <CFormInput
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="una password a caso"
+            required
+          />
+          <CFormLabel>Postazione</CFormLabel>
+          <PCSelect onSelect={handleSelect} />
           <CButton type="submit">Salva</CButton>
         </CForm>
 

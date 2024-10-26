@@ -1,4 +1,4 @@
-import React, { useEffect, useState,useRef } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import axios from 'axios'
 import {
   CCard,
@@ -15,16 +15,12 @@ import {
   CTableDataCell,
   CSpinner,
   CAlert,
-  CToaster,
-  CToast,
-  CToastHeader,
-  CToastBody,
-  } from '@coreui/react'
-import ModalNew from "./ModalNewProvider";
+} from '@coreui/react'
+import ModalNew from "./ModalCategory";
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
-const ProvidersView = () => {
+const CategoriesView = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -36,7 +32,7 @@ const ProvidersView = () => {
     setLoading(true);
     setError(null);
     axios
-      .get('http://localhost:5000/api/providers', {
+      .get('http://localhost:5000/api/categories', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       })
       .then((response) => {
@@ -60,14 +56,14 @@ const ProvidersView = () => {
   };
 
   const handleDeleteItem = async (id) => {
-    if (confirm('Sei sicuro di voler eliminare questo fornitore?')) {
+    if (confirm('Sei sicuro di voler eliminare questo record?')) {
       try {
         await axios.delete(`${apiUrl}/api/providers/${id}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         });
         fetchData();
       } catch (error) {
-        console.error('Errore durante l\'eliminazione del fornitore:', error);
+        console.error('Errore durante l\'eliminazione del record:', error);
       }
     }
 
@@ -104,14 +100,13 @@ const ProvidersView = () => {
                 Nessun fornitore disponibile.
               </CAlert>
             ) : (
-              <CTable>
+              <CTable striped responsive>
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell scope="col">#ID</CTableHeaderCell>
                     <CTableHeaderCell scope="col">Nome</CTableHeaderCell>
-                    <CTableHeaderCell scope="col">Email</CTableHeaderCell>
-                    <CTableHeaderCell scope="col">Telefono</CTableHeaderCell>
-                    <CTableHeaderCell className="text-end" scope="col">Azioni</CTableHeaderCell>
+                    <CTableHeaderCell scope="col">Colore</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Azioni</CTableHeaderCell>
                   </CTableRow>
                 </CTableHead>
                 <CTableBody>
@@ -119,8 +114,9 @@ const ProvidersView = () => {
                     <CTableRow key={item.id}>
                       <CTableDataCell>{item.id}</CTableDataCell>
                       <CTableDataCell>{item.name}</CTableDataCell>
-                      <CTableDataCell>{item.email}</CTableDataCell>
-                      <CTableDataCell>{item.phone}</CTableDataCell>
+                      <CTableDataCell>
+                        <div style={{ width: 50, height: 30, backgroundColor: item.color }} />
+                      </CTableDataCell>
                       <CTableDataCell className="text-end">
                         <CButton color="warning" className="me-2" size="sm" onClick={() => handleOpenModal(item)}>
                           Modifica
@@ -147,4 +143,4 @@ const ProvidersView = () => {
   );
 };
 
-export default ProvidersView;
+export default CategoriesView;

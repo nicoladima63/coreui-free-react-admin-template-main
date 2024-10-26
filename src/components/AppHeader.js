@@ -77,6 +77,9 @@ const AppHeader = () => {
             <CNavLink to="/steps" as={NavLink}>Steps</CNavLink>
           </CNavItem>
           <CNavItem>
+            <CNavLink to="/categories" as={NavLink}>Categorie</CNavLink>
+          </CNavItem>
+          <CNavItem>
             <CNavLink to="/setup" as={NavLink}>Setup</CNavLink>
           </CNavItem>
         </CHeaderNav>
