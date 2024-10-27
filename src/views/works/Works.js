@@ -31,7 +31,7 @@ const WorksView = () => {
     setLoading(true)
     setError(null)
     axios
-      .get('http://localhost:5000/api/works', {
+      .get('http://localhost:5000/api/aggregate/works', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       })
       .then((response) => {
@@ -115,8 +115,8 @@ const WorksView = () => {
                           <CTableRow key={item.id}>
                             <CTableDataCell>{item.id}</CTableDataCell>
                             <CTableDataCell>{item.name}</CTableDataCell>
-                            <CTableDataCell>{item.providerid}</CTableDataCell>
-                            <CTableDataCell>{item.categoryid}</CTableDataCell>
+                            <CTableDataCell>{item.provider.name}</CTableDataCell>
+                            <CTableDataCell>{item.category.name}</CTableDataCell>
                             <CTableDataCell>
                               <div style={{ width: 50, height: 30, backgroundColor: item.color }} />
                             </CTableDataCell>

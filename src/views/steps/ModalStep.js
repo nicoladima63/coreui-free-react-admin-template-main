@@ -4,14 +4,14 @@ import {
   CModal, CModalHeader, CModalBody, CModalFooter, CButton,
   CFormInput, CForm, CFormLabel, CAlert
 } from '@coreui/react';
-import ProviderSelect from '../../components/ProviderSelect';
-import CategorySelect from '../../components/CategorySelect';
-
+import UserSelect from '../../components/UserSelect';
+import WorkSelect from '../../components/WorkSelect';
 
 const ModalWork = ({ visible, onClose, item, refreshData }) => {
   const [name, setName] = useState('');
-  const [providerid,setProviderId] = useState('');
-  const [categoryid,setCategoryId] = useState('');
+  const [userid, setUserId] = useState('');
+  const [workid, setWorkId] = useState('');
+  const [completed, setCompleted] = useState(false);
 
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
@@ -21,8 +21,9 @@ const ModalWork = ({ visible, onClose, item, refreshData }) => {
     if (item) {
       // Precompiliamo i campi se è stato passato un item
       setName(item.name);
-      setProviderId(item.providerid);
-      setCategoryId(item.categoryid);
+      setUserId(item.userid);
+      setWorkId(item.workid);
+      setCompleted(item.completed);
     } else {
       // Reset campi in caso di nuovo provider
       resetForm();
@@ -36,13 +37,15 @@ const ModalWork = ({ visible, onClose, item, refreshData }) => {
 
     const sendData = {
       name,
-      providerid,
-      categoryid
+      workid,
+      userid,
+      completed
     };
+
     try {
       if (item) {
         // Se esiste un item, inviamo una richiesta PUT per aggiornare
-        const response = await axios.put(`http://localhost:5000/api/works/${item.id}`, sendData);
+        const response = await axios.put(`http://localhost:5000/api/stepstemp/${item.id}`, sendData);
         if (response.status === 200) {
           setSuccess(true);
           refreshData(); // Aggiorna la lista
@@ -51,7 +54,7 @@ const ModalWork = ({ visible, onClose, item, refreshData }) => {
         }
       } else {
         // Altrimenti, inviamo una richiesta POST per creare un nuovo record
-        const response = await axios.post('http://localhost:5000/api/works', sendData);
+        const response = await axios.post('http://localhost:5000/api/stepstemp', sendData);
         if (response.status === 201) {
           setSuccess(true);
           refreshData(); // Aggiorna la lista 
@@ -68,40 +71,41 @@ const ModalWork = ({ visible, onClose, item, refreshData }) => {
 
   const resetForm = () => {
     setName('');
-    setProviderId('');
-    setCategoryId('');
+    setUserId('');
+    setWorkId('');
+    setCompleted(false)
     setSuccess(false);
     setError(null);
     onClose();
   };
 
-  const handleProviderSelect = (value) => {
-    setProviderId(value);
+  const handleWorkSelect = (value) => {
+    setWorkId(value);
   };
 
-  const handleCategorySelect = (value) => {
-    setCategoryId(value);
+  const handleUserSelect = (value) => {
+    setUserId(value);
   };
 
   return (
     <CModal visible={visible} onClose={onClose}>
       <CModalHeader>
-        <h5>{item ? 'Modifica Lavorazione' : 'Nuova Lavorazione'}</h5>
+        <h5>{item ? 'Modifica fase' : 'Nuova fase'}</h5>
       </CModalHeader>
       <CModalBody>
         <CForm onSubmit={handleSubmit}>
+          <CFormLabel>Lavorazione</CFormLabel>
+          <WorkSelect onSelect={handleWorkSelect} value={workid} required />
           <CFormLabel>Nome</CFormLabel>
           <CFormInput
             type="text"
-            placeholder="Nome della lavorazione"
+            placeholder="Nome della fase"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
           />
-          <CFormLabel>Fornitore</CFormLabel>
-          <ProviderSelect onSelect={handleProviderSelect} selectedValue={providerid} required />
-          <CFormLabel>Categoria</CFormLabel>
-          <CategorySelect onSelect={handleCategorySelect} selectedValue={categoryid} required/>
+          <CFormLabel>Utente</CFormLabel>
+          <UserSelect onSelect={handleUserSelect} value={userid} required />
           {error && (
             <CAlert color="danger" size="sm">
               {error}

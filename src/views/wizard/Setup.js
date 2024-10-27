@@ -7,7 +7,7 @@ import ModalUser from '../users/ModalUser';
 import ModalProvider from '../provider/ModalNewProvider';
 import ModalCategory from '../categories/ModalCategory';
 import ModalWork from '../works/ModalWork';
-//import ModalStep from '../steps/ModalStep';
+import ModalStep from '../steps/ModalStep';
 
 const SetupWizard = () => {
   const [steps, setSteps] = useState([
@@ -130,7 +130,7 @@ const SetupWizard = () => {
       <ModalProvider visible={modalVisible.provider} onClose={() => closeModal('provider')} />
       <ModalCategory visible={modalVisible.category} onClose={() => closeModal('category')} />
       <ModalWork visible={modalVisible.work} onClose={() => closeModal('work')} />
-      {/*<ModalStep visible={modalVisible.step} onClose={() => closeModal('step')} />*/}
+      <ModalStep visible={modalVisible.step} onClose={() => closeModal('step')} />
 
     </CCard>
   );

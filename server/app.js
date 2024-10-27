@@ -10,7 +10,7 @@ const userRoutes = require('./routes/userRoutes');
 const stepRoutes = require('./routes/stepRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const stepTempRoutes = require('./routes/stepTempRoutes');
-
+const aggregateRoutes = require('./routes/aggregateRoutes');
 
 require('dotenv').config(); // Assicurati che le variabili di ambiente siano caricate
 
@@ -29,6 +29,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/steps', stepRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/stepstemp', stepTempRoutes);
+app.use('/api/aggregate', aggregateRoutes);
 
 // Rotta di test per verificare che il server funzioni
 app.get('/api/test', (req, res) => {

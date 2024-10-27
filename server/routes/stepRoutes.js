@@ -1,5 +1,5 @@
 const express = require('express');
-const TaskStep = require('../models/TaskStep');
+const Step = require('../models/Step');
 const authenticateToken = require('../middleware/authMiddleware'); // Importa il middleware
 const router = express.Router();
 
@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
   if (userid) whereClause.userid = assigned_user_id;
   if (completed) whereClause.completed = userid;
 
-  const records = await TaskStep.findAll({ where: whereClause });
+  const records = await Step.findAll({ where: whereClause });
   res.json(records);
 });
 
@@ -21,7 +21,7 @@ router.post('/', async (req, res) => {
   const { workid, name, userid, completed } = req.body;
 
   try {
-    const record = await TaskStep.create({
+    const record = await Step.create({
       workid,
       name,
       userid,
@@ -40,7 +40,7 @@ router.put('/:id', async (req, res) => {
 
   try {
     // Trova il fornitore per ID e aggiornalo
-    const record = await TaskStep.findByPk(id);
+    const record = await Step.findByPk(id);
     if (!record) {
       return res.status(404).json({ error: 'Record non trovato' });
     }
@@ -63,7 +63,7 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const record = await TaskStep.findByPk(id);
+    const record = await Step.findByPk(id);
     if (!record) {
       return res.status(404).json({ error: 'Record non trovato' });
     }

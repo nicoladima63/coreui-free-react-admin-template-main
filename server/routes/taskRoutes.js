@@ -1,6 +1,6 @@
 const express = require('express');
 const Task = require('../models/Task');
-const TaskStep = require('../models/TaskStep');
+const Step = require('../models/Step');
 const authenticateToken = require('../middleware/authMiddleware'); // Importa il middleware
 const router = express.Router();
 
