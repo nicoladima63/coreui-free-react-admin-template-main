@@ -82,8 +82,38 @@ const getTasksWithDetails = async () => {
 };
 
 
+const getTasksForDashboard = async () => {
+  try {
+    const tasks = await Task.findAll({
+      include: [
+        {
+          model: Provider,
+          as: 'provider',
+          attributes: ['name'], // Include solo il nome del provider
+        },
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['color'], // Cambia 'color' con il campo appropriato
+        },
+        {
+          model: Work,
+          as: 'work',
+          attributes: ['name'], // Include solo il nome del lavoro
+        },
+      ],
+      attributes: ['id', 'completed'], // Aggiungi altri attributi se necessari
+    });
+    return tasks;
+  } catch (error) {
+    console.error('Errore nel recupero dei task per il dashboard:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getWorksWithDetails,
   getStepsWithDetails,
-  getTasksWithDetails
+  getTasksWithDetails,
+  getTasksForDashboard, // Esporta la nuova funzione
 };

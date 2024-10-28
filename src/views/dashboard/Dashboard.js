@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { NavLink } from 'react-router-dom';
 import {
   CCard,
@@ -20,40 +19,35 @@ import FilterGroupButton from '../../components/FilterGroupButton';
 import ModalNew from './ModalNew'
 import { RefreshCw } from 'lucide-react';
 
+import * as Controller from '../../axioService';
+
 const Dashboard = () => {
   const [tasks, setTasks] = useState([]);
   const [filteredTasks, setFilteredTasks] = useState([]);
-  const [selectedFilter, setSelectedFilter] = useState('completed'); // Filtro selezionato
+  const [selectedFilter, setSelectedFilter] = useState('incomplete'); // Filtro selezionato
   const [loading, setLoading] = useState(true); // Stato per lo spinner
   const [error, setError] = useState(null); // Stato per gli errori
   const [modalAddVisible, setModalAddVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const loadTasks = () => {
+  const loadTasks = async () => {
     setLoading(true);
     setError(null);
-    axios
-      .get('http://localhost:5000/api/tasks', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      })
-      .then((response) => {
-        setTasks(response.data);
-        setFilteredTasks(response.data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error('Errore nel recupero dei task:', error);
-        setError('Errore nel recupero dei dati o connessione al server assente.');
-        setLoading(false);
-      });
+
+    try {
+      const data = await Controller.task.getTasks();
+      setTasks(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const loadTaskSteps = async (taskId) => {
+  const loadTaskSteps = async (taskid) => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/steps?task_id=${taskId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-      return response.data;
+      const data = await Controller.stepsForTask.getStepsForTask(taskid);
+      return data;
     } catch (error) {
       console.error('Errore nel recupero delle fasi:', error);
       return [];
@@ -65,15 +59,19 @@ const Dashboard = () => {
     loadTasks();
   }, []);
 
+  useEffect(() => {
+    handleFilterChange(selectedFilter); // Carica i task filtrati iniziali
+  }, [tasks]); // Carica i task filtrati quando "tasks" cambia
+
   const handleFilterChange = (filter) => {
     setSelectedFilter(filter);
     let filtered;
     switch (filter) {
       case 'completed':
-        filtered = tasks.filter((task) => task.status === 'Completato');
+        filtered = tasks.filter((task) => task.completed === true);
         break;
       case 'incomplete':
-        filtered = tasks.filter((task) => task.status !== 'Completato');
+        filtered = tasks.filter((task) => task.completed === false);
         break;
       default:
         filtered = tasks;
@@ -90,7 +88,7 @@ const Dashboard = () => {
     <CCard className="mb-4">
       <CCardHeader>WorkFlows
         <CRow>
-          <CCol xs={ 10}>
+          <CCol xs={10}>
             <FilterGroupButton
               selectedFilter={selectedFilter}
               onFilterChange={handleFilterChange}
@@ -158,29 +156,26 @@ const TaskWidget = ({ task, loadTaskSteps }) => {
   const [completedSteps, setCompletedSteps] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
 
-  useEffect(() => {
-    const fetchTaskSteps = async () => {
-      const steps = await loadTaskSteps(task.id);
-      const completed = steps.filter((step) => step.status === 'Completato').length;
-      setCompletedSteps(completed);
-      setTotalSteps(steps.length);
-    };
-
-    fetchTaskSteps();
-  }, [task.id, loadTaskSteps]);
+  const fetchTaskSteps = async () => {
+    const steps = await loadTaskSteps(task.id);
+    const completed = steps.filter((step) => step.status === 'Completato').length;
+    setCompletedSteps(completed);
+    setTotalSteps(steps.length);
+  };
 
   return (
     <CCol xs={12} sm={6} xl={4} xxl={3}>
       <CWidgetStatsF
         icon={<CIcon width={24} icon={cilSettings} size="xl" />}
         value={task.patient}
-        title={`${completedSteps} fasi su ${totalSteps}`}
+        title={task.deliveryDate}
         color="primary"
         footer={
           <>
             <CProgress value={(completedSteps / totalSteps) * 100 || 0} />
-            <CNavLink to="/steps" as={NavLink}>
-              Vai alle fasi
+            {/* Attiva fetchTaskSteps al click */}
+            <CNavLink onClick={fetchTaskSteps} to="/steps" as={NavLink}>
+              {`${completedSteps} fasi completate su ${totalSteps}`}
               <CIcon icon={cilArrowRight} className="float-end" width={16} />
             </CNavLink>
           </>

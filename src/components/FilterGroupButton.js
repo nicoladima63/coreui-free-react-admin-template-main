@@ -12,6 +12,7 @@ const FilterGroupButton = ({ selectedFilter, onFilterChange, onReload }) => {
         >
           Tutti
         </CButton>
+
         <CButton
           size="sm"
           color={selectedFilter === 'completed' ? 'primary' : 'secondary'}
@@ -19,14 +20,14 @@ const FilterGroupButton = ({ selectedFilter, onFilterChange, onReload }) => {
         >
           Completati
         </CButton>
+
         <CButton
           size="sm"
-          color={selectedFilter === 'incomplete' ? 'primary' : 'secondary'}
+          color={selectedFilter ==='incomplete' ? 'primary' : 'secondary'}
           onClick={() => onFilterChange('incomplete')}
         >
           Da Completare
         </CButton>
-
 
         <CButton
           size="sm"

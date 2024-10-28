@@ -18,7 +18,6 @@ import {
 } from '@coreui/react'
 import ModalNew from "./ModalWork";
 
-const apiUrl = import.meta.env.VITE_API_URL;
 
 const WorksView = () => {
   const [items, setItems] = useState([]);
