@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  CCard,
+  CCard,CCardText,CCardTitle,CCardFooter,
   CCardBody,
   CCardHeader,
   CCol,
   CNavLink,
   CRow,
-  CWidgetStatsF,
+  CWidgetStatsF, 
   CSpinner,
   CAlert,
   CProgress,
@@ -16,12 +16,13 @@ import {
 import CIcon from '@coreui/icons-react';
 import { cilArrowRight, cilSettings } from '@coreui/icons';
 import FilterGroupButton from '../../components/FilterGroupButton';
-import ModalNew from './ModalNew'
+import ModalNew from './ModalNew';
 import { RefreshCw } from 'lucide-react';
 
 import * as Controller from '../../axioService';
 
 const Dashboard = () => {
+  const [dashboardData, setDashboardData] = useState({});
   const [tasks, setTasks] = useState([]);
   const [filteredTasks, setFilteredTasks] = useState([]);
   const [selectedFilter, setSelectedFilter] = useState('incomplete'); // Filtro selezionato
@@ -30,15 +31,15 @@ const Dashboard = () => {
   const [modalAddVisible, setModalAddVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const loadTasks = async () => {
+  const loadTasksForDashboard = async () => {
     setLoading(true);
     setError(null);
-
     try {
-      const data = await Controller.task.getTasks();
+      const data = await Controller.task.getTasksForDashboard();
       setTasks(data);
-    } catch (err) {
-      setError(err.message);
+    } catch (error) {
+      console.error('Errore nel recupero dei task:', error);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -56,7 +57,7 @@ const Dashboard = () => {
 
   // Carica i task al primo rendering
   useEffect(() => {
-    loadTasks();
+    loadTasksForDashboard();
   }, []);
 
   useEffect(() => {
@@ -83,7 +84,6 @@ const Dashboard = () => {
     setModalAddVisible(true);
   };
 
-
   return (
     <CCard className="mb-4">
       <CCardHeader>WorkFlows
@@ -92,20 +92,18 @@ const Dashboard = () => {
             <FilterGroupButton
               selectedFilter={selectedFilter}
               onFilterChange={handleFilterChange}
-              onReload={loadTasks} // Passiamo la funzione di reload come prop
+              onReload={loadTasksForDashboard} // Associa la funzione di reload alla dashboard
             />
-
           </CCol>
           <CCol xs={2}>
-            <CButton color="success" size="sm"
-              onClick={() => handleOpenModal()}
-            >
+            <CButton color="success" size="sm" onClick={handleOpenModal}>
               Nuovo
             </CButton>
-            <CButton size="sm"
+            <CButton
+              size="sm"
               color="primary"
               variant="outline"
-              onClick={() => loadTasks(true)}
+              onClick={() => loadTasksForDashboard(true)}
               disabled={isRefreshing}
             >
               {isRefreshing ? (
@@ -145,10 +143,23 @@ const Dashboard = () => {
       <ModalNew
         visible={modalAddVisible}
         onClose={() => setModalAddVisible(false)}
-        refresData={loadTasks}
+        refresData={loadTasksForDashboard}
       />
-
     </CCard>
+  );
+};
+
+const CustomProgress = ({ value, color }) => {
+  const progressStyle = {
+    width: `${value}%`,
+    backgroundColor: color, // Utilizza il colore personalizzato qui
+    height: '1rem', // Puoi modificare l'altezza a tuo piacimento
+  };
+
+  return (
+    <div style={{ backgroundColor: color, borderRadius: '0.25rem' }}>
+      <div style={progressStyle}></div>
+    </div>
   );
 };
 
@@ -163,24 +174,22 @@ const TaskWidget = ({ task, loadTaskSteps }) => {
     setTotalSteps(steps.length);
   };
 
+
   return (
-    <CCol xs={12} sm={6} xl={4} xxl={3}>
-      <CWidgetStatsF
-        icon={<CIcon width={24} icon={cilSettings} size="xl" />}
-        value={task.patient}
-        title={task.deliveryDate}
-        color="primary"
-        footer={
-          <>
-            <CProgress value={(completedSteps / totalSteps) * 100 || 0} />
-            {/* Attiva fetchTaskSteps al click */}
-            <CNavLink onClick={fetchTaskSteps} to="/steps" as={NavLink}>
-              {`${completedSteps} fasi completate su ${totalSteps}`}
-              <CIcon icon={cilArrowRight} className="float-end" width={16} />
-            </CNavLink>
-          </>
-        }
-      />
+    <CCol xs={12} sm={6} lg={3} xl={4} xxl={3}>
+      <CCard className="text-center" >
+        <CCardHeader style={{ backgroundColor: task.work.category.color,fontWeight: 'bold',color: 'white' }}>{task.work.name}</CCardHeader>
+        <CCardBody >
+          <CCardTitle>Paz: {task.patient}</CCardTitle>
+          <CCardText>Consegna il: {task.deliveryDate}</CCardText>
+        </CCardBody>
+        <CCardFooter className="text-body-secondary">
+          <CNavLink onClick={fetchTaskSteps} to="/steps" as={NavLink}>
+            {`${completedSteps} fasi completate su ${totalSteps}`}
+            <CIcon icon={cilArrowRight} className="float-end" width={16} />
+          </CNavLink>
+        </CCardFooter>
+      </CCard>
     </CCol>
   );
 };

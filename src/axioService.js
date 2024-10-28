@@ -46,7 +46,7 @@ const task = {
   // Nuovo metodo per ottenere i task per il dashboard
   getTasksForDashboard: async () => {
     try {
-      const response = await api.get('/api/aggregate/getTasksForDashboard'); // Assicurati che l'endpoint corrisponda al tuo backend
+      const response = await api.get('/api/aggregate/dashboard'); // Assicurati che l'endpoint corrisponda al tuo backend
       return response.data;
     } catch (error) {
       handleError(error, 'Errore nel recupero dei task per il dashboard.');
