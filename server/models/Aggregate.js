@@ -4,7 +4,7 @@ const Provider = require('./Provider');
 const Category = require('./Category');
 const User = require('./User');
 const Step = require('./Step');
-const Task = require('./StepTemp');
+const Task = require('./Task');
 
 // Definisci le associazioni solo una volta in questo file
 Work.belongsTo(Provider, { foreignKey: 'providerid', as: 'provider' });

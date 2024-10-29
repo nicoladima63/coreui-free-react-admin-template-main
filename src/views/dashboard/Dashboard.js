@@ -20,6 +20,7 @@ import ModalNew from './ModalNew'
 import { RefreshCw } from 'lucide-react';
 
 import * as Controller from '../../axioService';
+import { connectWebSocket } from '../../websocket';
 
 const Dashboard = () => {
   const [tasks, setTasks] = useState([]);
@@ -29,6 +30,22 @@ const Dashboard = () => {
   const [error, setError] = useState(null); // Stato per gli errori
   const [modalAddVisible, setModalAddVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+
+  const [notifications, setNotifications] = useState([]);
+  const handleNewNotification = (notification) => {
+    setNotifications((prev) => [...prev, notification]);
+  };
+  // Aggiorna il websocket per usare questa funzione
+  useEffect(() => {
+    const wsUrl = 'ws://localhost:5000';
+    const ws = connectWebSocket(wsUrl, handleNewNotification); // Passa la funzione di gestione notifiche
+
+    return () => {
+      ws.close();
+    };
+  }, []);
+
 
   const loadTasks = async () => {
     setLoading(true);
@@ -53,11 +70,6 @@ const Dashboard = () => {
       return [];
     }
   };
-
-  // Carica i task al primo rendering
-  useEffect(() => {
-    loadTasks();
-  }, []);
 
   useEffect(() => {
     handleFilterChange(selectedFilter); // Carica i task filtrati iniziali
@@ -120,6 +132,19 @@ const Dashboard = () => {
       </CCardHeader>
 
       <CCardBody>
+
+
+        {notifications.length > 0 && (
+          <div>
+            {notifications.map((note, index) => (
+              <CAlert key={index} color="info">
+                {note.message}
+              </CAlert>
+            ))}
+          </div>
+        )}
+
+
         {loading ? (
           <div className="text-center">
             <CSpinner color="primary" />
