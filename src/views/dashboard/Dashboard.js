@@ -20,6 +20,7 @@ import ModalNew from './ModalNew';
 import { RefreshCw } from 'lucide-react';
 
 import * as Controller from '../../axioService';
+import { connectWebSocket } from '../../websocket';
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState({});
@@ -31,6 +32,19 @@ const Dashboard = () => {
   const [modalAddVisible, setModalAddVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const [notifications, setNotifications] = useState([]);
+  const handleNewNotification = (notification) => {
+    setNotifications((prev) => [...prev, notification]);
+  };
+  // Aggiorna il websocket per usare questa funzione
+  useEffect(() => {
+    const wsUrl = 'ws://localhost:5000';
+    const ws = connectWebSocket(wsUrl, handleNewNotification); // Passa la funzione di gestione notifiche
+
+    return () => {
+      ws.close();
+    };
+  }, []);
   const loadTasksForDashboard = async () => {
     setLoading(true);
     setError(null);
@@ -40,6 +54,20 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Errore nel recupero dei task:', error);
       setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadTasks = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await Controller.task.getTasks();
+      setTasks(data);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -58,6 +86,7 @@ const Dashboard = () => {
   // Carica i task al primo rendering
   useEffect(() => {
     loadTasksForDashboard();
+    //loadTasks();
   }, []);
 
   useEffect(() => {
@@ -118,6 +147,16 @@ const Dashboard = () => {
       </CCardHeader>
 
       <CCardBody>
+        {notifications.length > 0 && (
+          <div>
+            {notifications.map((note, index) => (
+              <CAlert key={index} color="info">
+                {note.message}
+              </CAlert>
+            ))}
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center">
             <CSpinner color="primary" />
@@ -146,20 +185,6 @@ const Dashboard = () => {
         refresData={loadTasksForDashboard}
       />
     </CCard>
-  );
-};
-
-const CustomProgress = ({ value, color }) => {
-  const progressStyle = {
-    width: `${value}%`,
-    backgroundColor: color, // Utilizza il colore personalizzato qui
-    height: '1rem', // Puoi modificare l'altezza a tuo piacimento
-  };
-
-  return (
-    <div style={{ backgroundColor: color, borderRadius: '0.25rem' }}>
-      <div style={progressStyle}></div>
-    </div>
   );
 };
 

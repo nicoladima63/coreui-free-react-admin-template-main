@@ -9,7 +9,24 @@ const PC = sequelize.define('PC', {
   location: {
     type: DataTypes.STRING,
     allowNull: false,
-  }
+  },
+  ipAddress: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+  },
+  status: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
+  lastOnline: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
 });
 
 // Sincronizza il modello con il database
