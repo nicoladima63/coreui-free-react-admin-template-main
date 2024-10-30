@@ -207,6 +207,7 @@ const TaskWidget = ({ task }) => {
     return date.toLocaleDateString('it-IT', options); // Restituisce la data formattata
   };
 
+
   return (
     <CCol xs={12} sm={6} lg={3} xl={4} xxl={2}>
       <CCard className="text-center">

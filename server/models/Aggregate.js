@@ -12,7 +12,7 @@ Work.belongsTo(Category, { foreignKey: 'categoryid', as: 'category' });
 
 Step.belongsTo(User, { foreignKey: 'userid', as: 'user' });
 
-Task.hasMany(Step, { foreignKey: 'taskid', as: 'steps' }); // Un task può avere molti step
+Task.hasMany(Step, { foreignKey: 'taskid', as: 'steps' }); // Un task pu� avere molti step
 Step.belongsTo(Task, { foreignKey: 'taskid', as: 'task' }); // Un step appartiene a un task
 
 Task.belongsTo(Work, { foreignKey: 'workid', as: 'work' });
