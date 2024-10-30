@@ -175,7 +175,7 @@ const Dashboard = () => {
         ) : (
           <CRow xs={{ gutter: 4 }}>
             {filteredTasks.map((task) => (
-              <TaskWidget key={task.id} task={task} loadTaskSteps={loadTaskSteps} />
+              <TaskWidget key={task.id} task={task} />
             ))}
           </CRow>
         )}
