@@ -1,17 +1,24 @@
-import React from 'react'
+import React, { useEffect, useState, useRef } from 'react'
+import axios from 'axios'
 import {
   CCard,
   CCardBody,
   CCardHeader,
+  CButton, CButtonGroup,
   CCol,
   CRow,
   CTable,
   CTableBody,
-  CTableCaption,
-  CTableDataCell,
   CTableHead,
   CTableHeaderCell,
   CTableRow,
+  CTableDataCell,
+  CSpinner,
+  CAlert,
+  CToaster,
+  CToast,
+  CToastHeader,
+  CToastBody,
 } from '@coreui/react'
 import ModalNew from "./ModalStep";
 
@@ -26,7 +33,7 @@ const StepsView = () => {
     setLoading(true)
     setError(null)
     axios
-      .get('http://localhost:5000/api/stepstemp', {
+      .get('http://localhost:5000/api/aggregate/steps', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       })
       .then((response) => {
