@@ -5,10 +5,10 @@ const router = express.Router();
 
 //get steps for a task
 router.get('/', async (req, res) => {
-  const { workid, name, userid, completed } = req.query;
+  const { taskid, name, userid, completed } = req.query;
 
   let whereClause = {};
-  if (workid) whereClause.workid = workid;
+  if (taskid) whereClause.taskid = taskid;
   if (name) whereClause.name = name;
   if (userid) whereClause.userid = assigned_user_id;
   if (completed) whereClause.completed = userid;
@@ -18,11 +18,11 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { workid, name, userid, completed } = req.body;
+  const { taskid, name, userid, completed } = req.body;
 
   try {
     const record = await Step.create({
-      workid,
+      taskid,
       name,
       userid,
       completed,
@@ -36,7 +36,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { workid, name, userid, completed } = req.body;
+  const { taskid, name, userid, completed } = req.body;
 
   try {
     // Trova il fornitore per ID e aggiornalo
@@ -46,7 +46,7 @@ router.put('/:id', async (req, res) => {
     }
 
     // Aggiorna i campi forniti
-    record.workid = workid || record.workid;
+    record.taskid = taskid || record.taskid;
     record.name = name || record.name;
     record.userid = userid || record.userid;
     record.completed = completed || record.completed;

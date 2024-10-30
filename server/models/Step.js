@@ -2,7 +2,7 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../database');
 
 const Step = sequelize.define('Step', {
-  workid: {
+  taskid: {
     type: DataTypes.INTEGER,
     allowNull: false,
   },

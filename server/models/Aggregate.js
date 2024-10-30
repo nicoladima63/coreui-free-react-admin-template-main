@@ -4,14 +4,16 @@ const Provider = require('./Provider');
 const Category = require('./Category');
 const User = require('./User');
 const Step = require('./Step');
-const Task = require('./StepTemp');
+const Task = require('./Task');
 
 // Definisci le associazioni solo una volta in questo file
 Work.belongsTo(Provider, { foreignKey: 'providerid', as: 'provider' });
 Work.belongsTo(Category, { foreignKey: 'categoryid', as: 'category' });
 
-Step.belongsTo(Work, { foreignKey: 'workid', as: 'work' });
 Step.belongsTo(User, { foreignKey: 'userid', as: 'user' });
+
+Task.hasMany(Step, { foreignKey: 'taskid', as: 'steps' }); // Un task può avere molti step
+Step.belongsTo(Task, { foreignKey: 'taskid', as: 'task' }); // Un step appartiene a un task
 
 Task.belongsTo(Work, { foreignKey: 'workid', as: 'work' });
 
@@ -39,16 +41,10 @@ const getWorksWithDetails = async () => {
   }
 };
 
-
 const getStepsWithDetails = async () => {
   try {
     const steps = await Step.findAll({
       include: [
-        {
-          model: Work,
-          as: 'work',
-          attributes: ['id', 'name'], // Include solo i campi necessari
-        },
         {
           model: User,
           as: 'user',
@@ -81,28 +77,41 @@ const getTasksWithDetails = async () => {
   }
 };
 
-
-const getTasksForDashboard = async () => {
+const getTasksForDashboard2 = async () => {
   try {
     const tasks = await Task.findAll({
       include: [
         {
-          model: Provider,
-          as: 'provider',
-          attributes: ['name'], // Include solo il nome del provider
-        },
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['color'], // Cambia 'color' con il campo appropriato
-        },
-        {
           model: Work,
           as: 'work',
-          attributes: ['name'], // Include solo il nome del lavoro
+          attributes: ['id', 'name'], // Attributi di Work
+          include: [
+            {
+              model: Provider,
+              as: 'provider',
+              attributes: ['id', 'name'], // Attributi di Provider
+            },
+            {
+              model: Category,
+              as: 'category',
+              attributes: ['id', 'color'], // Attributi di Category
+            }
+          ]
         },
+        {
+          model: Step,
+          as: 'step',
+          attributes: ['id', 'name'], // Attributi di Step
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'name'], // Attributi di User
+            }
+          ]
+        }
       ],
-      attributes: ['id', 'completed'], // Aggiungi altri attributi se necessari
+      //attributes: ['id', 'deliveryDate','completed'], // Attributi di Task
     });
     return tasks;
   } catch (error) {
@@ -111,9 +120,52 @@ const getTasksForDashboard = async () => {
   }
 };
 
+
+const getTasksForDashboard = async () => {
+  try {
+    const tasks = await Task.findAll({
+      include: [
+        {
+          model: Work,
+          as: 'work',
+          attributes: ['id', 'name'], // Attributi di Work
+          include: [
+            {
+              model: Provider,
+              as: 'provider',
+              attributes: ['id', 'name'], // Attributi di Provider
+            },
+            {
+              model: Category,
+              as: 'category',
+              attributes: ['id', 'color'], // Attributi di Category
+            }
+          ]
+        },
+        {
+          model: Step,
+          as: 'steps', // Usa 'steps' qui per la relazione
+          attributes: ['id', 'name', 'completed'], // Attributi di Step
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'name'], // Attributi di User
+            }
+          ]
+        }
+      ],
+      // attributes: ['id', 'deliveryDate', 'completed'], // Attributi di Task
+    });
+    return tasks;
+  } catch (error) {
+    console.error('Errore nel recupero dei task per il dashboard:', error);
+    throw error;
+  }
+};
 module.exports = {
   getWorksWithDetails,
   getStepsWithDetails,
   getTasksWithDetails,
-  getTasksForDashboard, // Esporta la nuova funzione
+  getTasksForDashboard,
 };
