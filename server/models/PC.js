@@ -23,7 +23,7 @@ const PC = sequelize.define('PC', {
     type: DataTypes.DATE,
     allowNull: true,
   },
-  userId: {
+  userid: {
     type: DataTypes.INTEGER,
     allowNull: true,
   },

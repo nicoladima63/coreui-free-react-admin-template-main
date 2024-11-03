@@ -17,7 +17,11 @@ const StepTemp = sequelize.define('StepTemp', {
   userid: {
     type: DataTypes.INTEGER,
     allowNull: true,
-  }
+  },
+  order: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
 });
 
 const syncDatabase = async () => {

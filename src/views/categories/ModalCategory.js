@@ -1,80 +1,67 @@
-// ModalCategory.js
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import {
-  CModal, CModalHeader, CModalBody, CModalFooter, CButton,
-  CFormInput, CForm, CFormLabel, CAlert
+  CModal,
+  CModalHeader,
+  CModalBody,
+  CModalFooter,
+  CInputGroup,
+  CButton,
+  CForm,
+  CFormLabel,
+  CFormInput,
+  CAlert,
 } from '@coreui/react';
 
-const ModalCategory = ({ visible, onClose, item, refreshData }) => {
-  const [categoryName, setCategoryName] = useState('');
-  const [categoryColor, setCategoryColor] = useState('#ffffff'); // Colore di default
-
+const ModalCategory = ({ visible, onClose, onSave, selectedItem }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    color: '',
+  });
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
-
   useEffect(() => {
-    if (item) {
-      // Precompiliamo i campi se è stato passato un item
-      setCategoryName(item.name);
-      setCategoryColor(item.color);
+    if (selectedItem) {
+      // Precompilazione campi in caso di modifica
+      setFormData({
+        name: selectedItem.name || '',
+        color: selectedItem.color || '',
+      });
     } else {
-      // Reset campi in caso di nuovo provider
       resetForm();
     }
-  }, [item]);
+  }, [selectedItem]);
+
+  const handleChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setSuccess(false);
 
-    const sendData = {
-      name: categoryName,
-      color: categoryColor,
-    };
-
     try {
-      if (item) {
-        // Se esiste un item, inviamo una richiesta PUT per aggiornare
-        const response = await axios.put(`http://localhost:5000/api/categories/${item.id}`, sendData);
-        if (response.status === 200) {
-          setSuccess(true);
-          refreshData(); // Aggiorna la lista
-          resetForm();
-          onClose(); // Chiudi la modal
-        }
-      } else {
-        // Altrimenti, inviamo una richiesta POST per creare un nuovo record
-        const response = await axios.post('http://localhost:5000/api/categories', sendData);
-        if (response.status === 201) {
-          setSuccess(true);
-          refreshData(); // Aggiorna la lista 
-          resetForm();
-          onClose(); // Chiudi la modal
-        }
-      }
+      await onSave(formData); // Chiama il callback onSave con i dati del form
+      setSuccess(true);
+      resetForm();
+      onClose();
     } catch (error) {
-      console.error('Errore durante l\'invio dei dati:', error);
-      setSuccess(false);
-      setError('Errore durante l\'invio dei dati. Verifica i dati e riprova.');
+      console.error("Errore durante l'invio dei dati:", error);
+      setError("Errore durante l'invio dei dati. Verifica i dati e riprova.");
     }
   };
 
   const resetForm = () => {
-    setCategoryName('');
-    setCategoryColor('#ffffff');
+    setFormData({ name: '', color: '' });
     setSuccess(false);
     setError(null);
-    onClose();
   };
-
 
   return (
     <CModal visible={visible} onClose={onClose}>
       <CModalHeader>
-        <h5>{item ? 'Modifica Categoria' : 'Nuova Categoria'}</h5>
+        <h5>{selectedItem ? 'Modifica Categoria' : 'Nuova Categoria'}</h5>
       </CModalHeader>
       <CModalBody>
         <CForm onSubmit={handleSubmit}>
@@ -82,15 +69,15 @@ const ModalCategory = ({ visible, onClose, item, refreshData }) => {
           <CFormInput
             type="text"
             placeholder="Nome della categoria"
-            value={categoryName}
-            onChange={(e) => setCategoryName(e.target.value)}
+            value={formData.name}
+            onChange={(e) => handleChange('name', e.target.value)}
           />
           <CFormLabel>Colore</CFormLabel>
           <CFormInput
             type="color"
-            value={categoryColor} // Imposta il valore del colore
-            onChange={(e) => setCategoryColor(e.target.value)} // Aggiorna il colore selezionato
-            className="mt-3" // Spazio sopra il color picker
+            value={formData.color}
+            onChange={(e) => handleChange('color', e.target.value)}
+            className="mt-3"
           />
           {error && (
             <CAlert color="danger" size="sm">
@@ -103,17 +90,15 @@ const ModalCategory = ({ visible, onClose, item, refreshData }) => {
             </CAlert>
           )}
           <CModalFooter>
-          <CButton color="secondary" onClick={onClose} size="sm">
-            Annulla
-          </CButton>
-          <CButton type="submit" color="primary" size="sm">
-            {item ? 'Salva Modifiche' : 'Aggiungi'}
-          </CButton>
-        </CModalFooter>
+            <CButton color="secondary" onClick={onClose} size="sm">
+              Annulla
+            </CButton>
+            <CButton type="submit" color="primary" size="sm">
+              {selectedItem ? 'Salva Modifiche' : 'Aggiungi'}
+            </CButton>
+          </CModalFooter>
         </CForm>
-
       </CModalBody>
-
     </CModal>
   );
 };

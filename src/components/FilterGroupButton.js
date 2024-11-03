@@ -29,13 +29,6 @@ const FilterGroupButton = ({ selectedFilter, onFilterChange, onReload }) => {
           Da Completare
         </CButton>
 
-        <CButton
-          size="sm"
-          color="info"
-          onClick={onReload} // Chiama la funzione onReload passata dal genitore
-        >
-          Reload
-        </CButton>
       </CButtonGroup>
     </div>
   )

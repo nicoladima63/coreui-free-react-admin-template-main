@@ -26,6 +26,7 @@ router.post('/', async (req, res) => {
       name,
       userid,
       completed,
+      order
     });
     res.status(201).json(record);
   } catch (error) {
@@ -36,7 +37,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { taskid, name, userid, completed } = req.body;
+  const { taskid, name, userid, completed, order } = req.body;
 
   try {
     // Trova il fornitore per ID e aggiornalo
@@ -50,6 +51,7 @@ router.put('/:id', async (req, res) => {
     record.name = name || record.name;
     record.userid = userid || record.userid;
     record.completed = completed || record.completed;
+    record.order = order || record.order;
 
     await record.save();
     res.json(record); // Restituisci il fornitore aggiornato

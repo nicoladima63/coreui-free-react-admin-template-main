@@ -4,18 +4,21 @@ const Provider = require('./Provider');
 const Category = require('./Category');
 const User = require('./User');
 const Step = require('./Step');
+const StepTemp = require('./StepTemp');
 const Task = require('./Task');
 
 // Definisci le associazioni solo una volta in questo file
 Work.belongsTo(Provider, { foreignKey: 'providerid', as: 'provider' });
 Work.belongsTo(Category, { foreignKey: 'categoryid', as: 'category' });
+Work.hasMany(StepTemp, { foreignKey: 'workid', as: 'stepstemp' });
 
 Step.belongsTo(User, { foreignKey: 'userid', as: 'user' });
-
-Task.hasMany(Step, { foreignKey: 'taskid', as: 'steps' }); // Un task pu� avere molti step
 Step.belongsTo(Task, { foreignKey: 'taskid', as: 'task' }); // Un step appartiene a un task
+StepTemp.belongsTo(User, { foreignKey: 'userid', as: 'user' });
 
 Task.belongsTo(Work, { foreignKey: 'workid', as: 'work' });
+Task.hasMany(Step, { foreignKey: 'taskid', as: 'steps' }); // Un task pu� avere molti step
+
 
 // Funzione per ottenere tutti i lavori con provider e categoria
 const getWorksWithDetails = async () => {
@@ -55,6 +58,27 @@ const getStepsWithDetails = async () => {
     return steps;
   } catch (error) {
     console.error('Errore nel recupero dei dettagli delle fasi:', error);
+    throw error;
+  }
+};
+const getStepsForWork = async (workid) => {
+  console.log('workid:', workid);
+  try {
+    const stepstemp = await StepTemp.findAll({
+      where: { workid },  // Filtra in base al parametro workid
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'name'],
+        }
+      ]
+    });
+    return stepstemp;
+  } catch (error) {
+    //console.error('Errore nel recupero dei dettagli delle fasi:', error);
+    console.error('Errore nel recupero dei dettagli delle fasi:', error.message, error.stack);
+
     throw error;
   }
 };
@@ -163,9 +187,11 @@ const getTasksForDashboard = async () => {
     throw error;
   }
 };
+
 module.exports = {
   getWorksWithDetails,
   getStepsWithDetails,
   getTasksWithDetails,
   getTasksForDashboard,
+  getStepsForWork,
 };

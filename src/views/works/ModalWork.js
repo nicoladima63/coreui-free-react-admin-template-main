@@ -1,130 +1,180 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import {
   CModal, CModalHeader, CModalBody, CModalFooter, CButton,
-  CFormInput, CForm, CFormLabel, CAlert
+  CFormInput, CForm, CFormLabel, CAlert, CBadge
 } from '@coreui/react';
+import CIcon from '@coreui/icons-react';
+import * as icon from '@coreui/icons';
+
 import ProviderSelect from '../../components/ProviderSelect';
 import CategorySelect from '../../components/CategorySelect';
 
+import ModalCategory from '../categories/ModalCategory';
+import ModalProvider from '../provider/ModalProvider';
 
-const ModalWork = ({ visible, onClose, item, refreshData }) => {
-  const [name, setName] = useState('');
-  const [providerid,setProviderId] = useState('');
-  const [categoryid,setCategoryId] = useState('');
-
+const ModalWork = ({ visible, onClose, onSave, selectedWork }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    providerid: '',
+    categoryid: ''
+  });
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
+  // Stati per le sub-modali
+  const [isProviderModalVisible, setIsProviderModalVisible] = useState(false);
+  const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
+  const [providers, setProviders] = useState([]);
+  const [categories, setCategories] = useState([]);
+
+  const fetchProviders = async () => {
+    // Richiama l'API per ottenere i provider aggiornati
+    const response = await fetch('/api/providers');
+    const data = await response.json();
+    setProviders(data);
+  };
+  const fetchCategories = async () => {
+    // Richiama l'API per ottenere i provider aggiornati
+    const response = await fetch('/api/categories');
+    const data = await response.json();
+    setCategories(data);
+  };
+  // fine per le sub-modali
+
 
   useEffect(() => {
-    if (item) {
-      // Precompiliamo i campi se è stato passato un item
-      setName(item.name);
-      setProviderId(item.providerid);
-      setCategoryId(item.categoryid);
+    if (selectedWork) {
+      // Precompilazione campi in caso di modifica
+      setFormData({
+        name: selectedWork.name || '',
+        providerid: selectedWork.providerid || '',
+        categoryid: selectedWork.categoryid || ''
+      });
     } else {
-      // Reset campi in caso di nuovo provider
       resetForm();
     }
-  }, [item]);
+  }, [selectedWork]);
+
+  const handleChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setSuccess(false);
 
-    const sendData = {
-      name,
-      providerid,
-      categoryid
-    };
     try {
-      if (item) {
-        // Se esiste un item, inviamo una richiesta PUT per aggiornare
-        const response = await axios.put(`http://localhost:5000/api/works/${item.id}`, sendData);
-        if (response.status === 200) {
-          setSuccess(true);
-          refreshData(); // Aggiorna la lista
-          resetForm();
-          onClose(); // Chiudi la modal
-        }
-      } else {
-        // Altrimenti, inviamo una richiesta POST per creare un nuovo record
-        const response = await axios.post('http://localhost:5000/api/works', sendData);
-        if (response.status === 201) {
-          setSuccess(true);
-          refreshData(); // Aggiorna la lista 
-          resetForm();
-          onClose(); // Chiudi la modal
-        }
-      }
+      await onSave(formData); // Chiama il callback onSave con i dati del form
+      setSuccess(true);
+      resetForm();
+      onClose();
     } catch (error) {
-      console.error('Errore durante l\'invio dei dati:', error);
-      setSuccess(false);
-      setError('Errore durante l\'invio dei dati. Verifica i dati e riprova.');
+      console.error("Errore durante l'invio dei dati:", error);
+      setError("Errore durante l'invio dei dati. Verifica i dati e riprova.");
     }
   };
 
   const resetForm = () => {
-    setName('');
-    setProviderId('');
-    setCategoryId('');
+    setFormData({
+      name: '',
+      providerid: '',
+      categoryid: ''
+    });
     setSuccess(false);
     setError(null);
-    onClose();
-  };
-
-  const handleProviderSelect = (value) => {
-    setProviderId(value);
-  };
-
-  const handleCategorySelect = (value) => {
-    setCategoryId(value);
   };
 
   return (
-    <CModal visible={visible} onClose={onClose}>
-      <CModalHeader>
-        <h5>{item ? 'Modifica Lavorazione' : 'Nuova Lavorazione'}</h5>
-      </CModalHeader>
-      <CModalBody>
-        <CForm onSubmit={handleSubmit}>
-          <CFormLabel>Nome</CFormLabel>
-          <CFormInput
-            type="text"
-            placeholder="Nome della lavorazione"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-          <CFormLabel>Fornitore</CFormLabel>
-          <ProviderSelect onSelect={handleProviderSelect} selectedValue={providerid} required />
-          <CFormLabel>Categoria</CFormLabel>
-          <CategorySelect onSelect={handleCategorySelect} selectedValue={categoryid} required/>
-          {error && (
-            <CAlert color="danger" size="sm">
-              {error}
-            </CAlert>
-          )}
-          {success && (
-            <CAlert color="success" size="sm">
-              Record {item ? 'modificato' : 'aggiunto'} con successo!
-            </CAlert>
-          )}
-          <CModalFooter>
-            <CButton color="secondary" onClick={onClose} size="sm">
-              Annulla
-            </CButton>
-            <CButton type="submit" color="primary" size="sm">
-              {item ? 'Salva Modifiche' : 'Aggiungi'}
-            </CButton>
-          </CModalFooter>
-        </CForm>
+    <>
+      <CModal visible={visible} onClose={onClose}>
+        <CModalHeader>
+          <h5>{selectedWork ? 'Modifica Lavorazione' : 'Nuova Lavorazione'}</h5>
+        </CModalHeader>
+        <CModalBody>
+          <CForm onSubmit={handleSubmit}>
+            <CFormLabel>Nome</CFormLabel>
+            <CFormInput
+              type="text"
+              placeholder="Nome della lavorazione"
+              value={formData.name}
+              onChange={(e) => handleChange('name', e.target.value)}
+              required
+            />
+            <CFormLabel>
+              Fornitore
+              <CButton
+                color="primary"
+                shape="rounded-pill"
+                size="sm"
+                onClick={() => setIsProviderModalVisible(true)} // Apri la modale fornitore
+              >+
+              </CButton>
 
-      </CModalBody>
 
-    </CModal>
+            </CFormLabel>
+            <ProviderSelect
+              onSelect={(value) => handleChange('providerid', value)}
+              selectedValue={formData.providerid}
+              providers={providers}
+              required
+            />
+
+            <CFormLabel>
+              Categoria
+              <CButton
+                color="primary"
+                size="sm"
+                onClick={() => setIsCategoryModalVisible(true)} // Apri la modale categoria
+              >+
+              </CButton>
+            </CFormLabel>
+            <CategorySelect
+              onSelect={(value) => handleChange('categoryid', value)}
+              selectedValue={formData.categoryid}
+              categories={categories}
+              required
+            />
+
+            {error && (
+              <CAlert color="danger" size="sm">
+                {error}
+              </CAlert>
+            )}
+            {success && (
+              <CAlert color="success" size="sm">
+                {selectedWork ? 'Record modificato con successo!' : 'Record aggiunto con successo!'}
+              </CAlert>
+            )}
+            <CModalFooter>
+              <CButton color="secondary" onClick={onClose} size="sm">
+                <CIcon icon={icon.cilReload} size="lg" />
+              </CButton>
+              <CButton type="submit" color="primary" size="sm">
+                {selectedWork ? <CIcon icon={icon.cilSave} size="lg" /> : <CIcon icon={icon.cilPlus} size="lg" />}
+              </CButton>
+            </CModalFooter>
+          </CForm>
+        </CModalBody>
+      </CModal>
+
+      {/* Sub-modali */}
+      <ModalProvider
+        visible={isProviderModalVisible}
+        onClose={() => {
+          setIsProviderModalVisible(false);
+          fetchProviders(); // Esegui solo dopo la chiusura della modale
+        }}
+      />
+      <ModalCategory
+        visible={isCategoryModalVisible}
+        onClose={() => {
+          setIsCategoryModalVisible(false);
+          fetchCategories(); // Esegui solo dopo la chiusura della modale
+        }}
+        refreshData={null} // Puoi aggiungere una funzione per aggiornare i dati dopo l'inserimento o modifica
+      />
+    </>
   );
 };
 

@@ -1,6 +1,12 @@
 // routes/aggregate.js
 const express = require('express');
-const { getWorksWithDetails, getStepsWithDetails, getTasksWithDetails, getTasksForDashboard } = require('../models/Aggregate');
+const {
+  getWorksWithDetails,
+  getStepsWithDetails,
+  getStepsForWork,
+  getTasksWithDetails,
+  getTasksForDashboard
+} = require('../models/Aggregate');
 const router = express.Router();
 
 router.get('/works', async (req, res) => {
@@ -15,6 +21,17 @@ router.get('/works', async (req, res) => {
 router.get('/steps', async (req, res) => {
   try {
     const steps = await getStepsWithDetails();
+    res.json(steps);
+  } catch (error) {
+    res.status(500).json({ error: 'Errore nel recupero delle fasi' });
+  }
+});
+
+router.get('/stepstemp', async (req, res) => {
+  const { workid } = req.query; // Recupera il parametro workId dalla query
+
+  try {
+    const steps = await getStepsForWork(workid); // Passa workId alla funzione di recupero
     res.json(steps);
   } catch (error) {
     res.status(500).json({ error: 'Errore nel recupero delle fasi' });

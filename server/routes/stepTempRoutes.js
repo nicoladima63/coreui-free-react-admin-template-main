@@ -5,20 +5,21 @@ const router = express.Router();
 
 //get steps for a task
 router.get('/', async (req, res) => {
-  const { workid, name, userid, completed } = req.query;
+  const { workid, name, userid, completed,order } = req.query;
 
   let whereClause = {};
   if (workid) whereClause.workid = workid;
   if (name) whereClause.name = name;
-  if (userid) whereClause.userid = assigned_user_id;
-  if (completed) whereClause.completed = userid;
+  if (userid) whereClause.userid = userid;
+  if (completed) whereClause.completed = completed;
+  if (order) whereClause.order = order;
 
   const records = await StepTemp.findAll({ where: whereClause });
   res.json(records);
 });
 
 router.post('/', async (req, res) => {
-  const { workid, name, userid, completed } = req.body;
+  const { workid, name, userid, completed, order } = req.body;
 
   try {
     const record = await StepTemp.create({
@@ -26,6 +27,7 @@ router.post('/', async (req, res) => {
       name,
       userid,
       completed,
+      order
     });
     res.status(201).json(record);
   } catch (error) {
@@ -36,7 +38,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { workid, name, userid, completed } = req.body;
+  const { workid, name, userid, completed,order } = req.body;
 
   try {
     // Trova il fornitore per ID e aggiornalo
@@ -50,6 +52,7 @@ router.put('/:id', async (req, res) => {
     record.name = name || record.name;
     record.userid = userid || record.userid;
     record.completed = completed || record.completed;
+    record.order = order || record.order;
 
     await record.save();
     res.json(record); // Restituisci il fornitore aggiornato

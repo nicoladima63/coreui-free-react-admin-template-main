@@ -10,8 +10,8 @@ router.get('/', async (req, res) => {
 
 // Crea un nuovo PC
 router.post('/', async (req, res) => {
-  const { name, location } = req.body;
-  const pc = await PC.create({ name, location });
+  const { name, location,ipAddress,status,lastOnline,userid } = req.body;
+  const pc = await PC.create({ name, location,ipAddress,status,lastOnline,userid });
   res.json(pc);
 });
 

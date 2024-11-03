@@ -1,23 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  CCard,CCardText,CCardTitle,CCardFooter,
+  CCard, CCardText, CCardTitle, CCardFooter,
   CCardBody,
   CCardHeader,
   CCol,
   CNavLink,
   CRow,
-  CWidgetStatsF, 
+  CWidgetStatsF,
   CSpinner,
   CAlert,
   CProgress,
   CButton,
+  CButtonGroup,
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
-import { cilArrowRight, cilSettings } from '@coreui/icons';
+import * as icon from '@coreui/icons';
+
 import FilterGroupButton from '../../components/FilterGroupButton';
 import ModalNew from './ModalNew';
-import { RefreshCw } from 'lucide-react';
 
 import * as Controller from '../../axioService';
 import { connectWebSocket } from '../../websocket';
@@ -115,77 +116,81 @@ const Dashboard = () => {
   };
 
   return (
-    <CCard className="mb-4">
-      <CCardHeader>WorkFlows
-        <CRow>
-          <CCol xs={10}>
-            <FilterGroupButton
-              selectedFilter={selectedFilter}
-              onFilterChange={handleFilterChange}
-              onReload={loadTasksForDashboard} // Associa la funzione di reload alla dashboard
-            />
-          </CCol>
-          <CCol xs={2}>
-            <CButton color="success" size="sm" onClick={handleOpenModal}>
-              Nuovo
-            </CButton>
-            <CButton
-              size="sm"
-              color="primary"
-              variant="outline"
-              onClick={() => loadTasksForDashboard(true)}
-              disabled={isRefreshing}
-            >
-              {isRefreshing ? (
-                <CSpinner size="sm" className="me-2" />
-              ) : (
-                <RefreshCw className="me-2" size={20} />
-              )}
-              Aggiorna
-            </CButton>
-          </CCol>
-        </CRow>
-      </CCardHeader>
+    <CRow>
+      <CCol xs={12}>
+        <CCard className="mb-4">
+          <CCardHeader>
+            <div className="d-flex justify-content-between align-items-center">
+              <h4 className="mb-0">Flussi di lavoro</h4>
+              <FilterGroupButton
+                selectedFilter={selectedFilter}
+                onFilterChange={handleFilterChange}
+              />
 
-      <CCardBody>
-        {notifications.length > 0 && (
-          <div>
-            {notifications.map((note, index) => (
-              <CAlert key={index} color="info">
-                {note.message}
+              <CButtonGroup>
+                <CButton color="primary" size="sm" onClick={handleOpenModal}>
+                  <CIcon icon={icon.cilPlus} />
+                </CButton>
+
+                <CButton
+                  size="sm"
+                  color="info"
+                  onClick={() => loadTasksForDashboard(true)}
+                  disabled={isRefreshing}
+                >
+                  {isRefreshing ? (
+                    <CSpinner size="sm" />
+                  ) : (
+                    <CIcon icon={icon.cilHistory} size='sm' />
+                  )}
+                </CButton>
+
+              </CButtonGroup>
+
+            </div>
+          </CCardHeader>
+
+          <CCardBody>
+            {notifications.length > 0 && (
+              <div>
+                {notifications.map((note, index) => (
+                  <CAlert key={index} color="info">
+                    {note.message}
+                  </CAlert>
+                ))}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="text-center">
+                <CSpinner color="primary" />
+              </div>
+            ) : error ? (
+              // Mostra errore se c'è stato un problema con la richiesta
+              <CAlert color="danger" className="text-center">
+                {error}
               </CAlert>
-            ))}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="text-center">
-            <CSpinner color="primary" />
-          </div>
-        ) : error ? (
-          // Mostra errore se c'è stato un problema con la richiesta
-          <CAlert color="danger" className="text-center">
-            {error}
-          </CAlert>
-        ) : tasks.length === 0 ? (
-          // Mostra avviso se non ci sono dati
-          <CAlert color="warning" className="text-center">
-            Nessuna fase disponibile.
-          </CAlert>
-        ) : (
-          <CRow xs={{ gutter: 4 }}>
-            {filteredTasks.map((task) => (
-              <TaskWidget key={task.id} task={task} />
-            ))}
-          </CRow>
-        )}
-      </CCardBody>
-      <ModalNew
-        visible={modalAddVisible}
-        onClose={() => setModalAddVisible(false)}
-        refresData={loadTasksForDashboard}
-      />
-    </CCard>
+            ) : tasks.length === 0 ? (
+              // Mostra avviso se non ci sono dati
+              <CAlert color="warning" className="text-center">
+                Nessuna fase disponibile.
+              </CAlert>
+            ) : (
+              <CRow xs={{ gutter: 4 }}>
+                {filteredTasks.map((task) => (
+                  <TaskWidget key={task.id} task={task} />
+                ))}
+              </CRow>
+            )}
+          </CCardBody>
+          <ModalNew
+            visible={modalAddVisible}
+            onClose={() => setModalAddVisible(false)}
+            refresData={loadTasksForDashboard}
+          />
+        </CCard>
+      </CCol>
+    </CRow>
   );
 };
 
@@ -211,8 +216,10 @@ const TaskWidget = ({ task }) => {
   return (
     <CCol xs={12} sm={6} lg={3} xl={4} xxl={2}>
       <CCard className="text-center">
-        <CCardHeader style={{ backgroundColor: task.work.category.color, fontWeight: 'bold', color: 'white' }}>
-          {task.work.name}
+        <CCardHeader style={{ backgroundColor: task.work.category.color }}>
+          <div className="d-flex justify-content-between align-items-center text-white bold">
+            <h6 className="mb-0">{task.work.name}</h6>
+          </div>
         </CCardHeader>
         <CCardBody>
           <CCardTitle>Paz: {task.patient}</CCardTitle>
@@ -226,7 +233,7 @@ const TaskWidget = ({ task }) => {
               {`${completedSteps} fasi completate`}
               <br />
               {`su ${totalSteps}`}
-              <CIcon icon={cilArrowRight} className="float-end" width={16} />
+              <CIcon icon={icon.cilArrowRight} className="float-end" width={16} />
             </div>
           </CNavLink>
         </CCardFooter>

@@ -54,7 +54,8 @@ const task = {
   },
 };
 
-const user = {  getUsers: async () => {
+const user = {
+  getUsers: async () => {
     try {
       const response = await api.get('/api/users');
       return response.data;
@@ -84,20 +85,26 @@ const step = {
       handleError(error, 'Errore nel recupero degli step.');
     }
   },
-};
 
-// Correzione: aggiunta del parametro taskId
-const stepsForTask = {
+  // Correzione: aggiunta del parametro taskId
+  getStepsForWork: async (workid) => {
+
+    try {
+      const response = await api.get(`/api/aggregate/stepstemp?workid=${workid}`);
+      return response.data;
+    } catch (error) {
+      handleError(error, 'Errore nel recupero degli step per il task specificato.');
+    }
+  },
   getStepsForTask: async (taskid) => {
     try {
-      const response = await api.get(`/api/steps?workid=${taskid}`);
+      const response = await api.get(`/api/steps?taskid=${taskid}`);
       return response.data;
     } catch (error) {
       handleError(error, 'Errore nel recupero degli step per il task specificato.');
     }
   },
 };
-
 const work = {
   getWorks: async () => {
     try {
@@ -121,4 +128,4 @@ const provider = {
 };
 
 // Esporta tutti i controller che centralizzano le API
-export { api, work, task, user, category, step, provider, stepsForTask };
+export { api, work, task, user, category, step, provider, };

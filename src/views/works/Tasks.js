@@ -20,7 +20,7 @@ import {
 import FilterGroupButton from '../../components/FilterGroupButton'
 import TaskPhaseModal from '../../components/TaskPhaseModal'
 
-const apiUrl = import.meta.env.VITE_API_URL;
+import * as Controller from '../../axioService';
 
 const TaskManagement = () => {
   const [loading, setLoading] = useState(true) // Stato per lo spinner
@@ -32,28 +32,22 @@ const TaskManagement = () => {
   const [error, setError] = useState(null) // Stato per gestire eventuali errori
 
   // Funzione per ricaricare i dati
-  const loadTasks = () => {
-    setLoading(true)
-    setError(null)
-    axios
-      .get('http://localhost:5000/api/tasks', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      })
-      .then((response) => {
-        setTasks(response.data)
-        setFilteredTasks(response.data) // Inizialmente mostra tutti i task
-        setLoading(false) // Fine caricamento
-      })
-      .catch((error) => {
-        console.error('Errore nel recupero dei task:', error)
-        setError('Errore nel recupero dei dati o connessione al server assente.')
-        setLoading(false) // Fine caricamento
-      })
-  }
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await Controller.task.getTasks();
+      setTasks(data)
+    } catch (error) {
+      console.error('Errore nel recupero dei task:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Carica i task al primo rendering
   useEffect(() => {
-    loadTasks()
+    fetchData() // Recupera i dati all'avvio del componente
   }, [])
 
   // Funzione per filtrare i task localmente

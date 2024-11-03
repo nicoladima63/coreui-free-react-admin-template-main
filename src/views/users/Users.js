@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react'
-import axios from 'axios'
+import React, { useEffect, useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   CCard,
   CCardBody,
   CCardHeader,
-  CButton, CButtonGroup,
+  CButton,
+  CButtonGroup,
   CCol,
   CRow,
   CTable,
@@ -13,46 +14,107 @@ import {
   CTableHeaderCell,
   CTableRow,
   CTableDataCell,
+  CTableCaption,
   CSpinner,
   CAlert,
-} from '@coreui/react'
-import ModalUser from './ModalUser'
-
-const apiUrl = import.meta.env.VITE_API_URL;
+} from '@coreui/react';
+import CIcon from '@coreui/icons-react';
+import * as icon from '@coreui/icons';
+import ModalNew from './ModalUser'
+import { UsersService } from '../../services/api';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
+import { QUERY_KEYS } from '../../constants/queryKeys';
+import { API_ERROR_MESSAGES } from '../../constants/errorMessages';
 
 const UsersView = () => {
-  const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [selectedItem, setSelectedItem] = useState(null)
-  const [isModalVisible, setIsModalVisible] = useState(false)
+  const queryClient = useQueryClient();
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
-  // Funzione per recuperare i dati
-  const fetchData = () => {
-    setLoading(true)
-    setError(null)
-    axios
-      .get('http://localhost:5000/api/users', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      })
-      .then((response) => {
-        setUsers(response.data)
-        setLoading(false) // Fine caricamento
-      })
-      .catch((error) => {
-        console.error('Errore nel recupero utenti:', error)
-        setError('Errore nel recupero dei dati o connessione al server assente.')
-        setLoading(false) // Fine caricamento
-      })
-  }
+  // Query per categorie
+  const {
+    data: users = [],
+    isLoading: isLoading,
+    error: error,
+  } = useQuery({
+    queryKey: [QUERY_KEYS.USERS],
+    queryFn: UsersService.getUsers
+  });
 
-  useEffect(() => {
-    fetchData() // Recupera i dati all'avvio del componente
-  }, [])
+  // Mutation per creare un nuovo work
+  const createMutation = useMutation({
+    mutationFn: UsersService.createUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.USERS]);
+      setIsModalVisible(false); // Chiudi il modale alla creazione
+    },
+    onError: (error) => {
+      console.error('Errore durante la creazione della lavorazione:', error);
+    },
+  });
 
-  const handleOpenModal = () => {
-    setIsModalVisible(true)
-  }
+  // Mutation per aggiornare un work
+  const updateMutation = useMutation({
+    mutationFn: UsersService.updateUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.USERS]);
+      setIsModalVisible(false); // Chiudi il modale dopo l'aggiornamento
+    },
+    onError: (error) => {
+      console.error('Errore durante l\'aggiornamento della lavorazione:', error);
+    },
+  });
+
+  // Mutation per eliminazione lavorazione
+  const deleteMutation = useMutation({
+    mutationFn: UsersService.deleteUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.USERS]);
+    },
+  });
+
+  const handleDelete = async (id) => {
+    const confirmed = await showConfirmDialog({
+      title: 'Conferma eliminazione',
+      message: 'Sei sicuro di voler eliminare questo record?',
+    });
+
+    if (confirmed) {
+      try {
+        await deleteMutation.mutateAsync(id);
+      } catch (error) {
+        console.error('Errore durante l\'eliminazione:', error);
+      }
+    }
+  };
+
+  const handleSave = async (item) => {
+    if (item.id) {
+      await updateMutation.mutateAsync(item); // Modifica esistente
+    } else {
+      await createMutation.mutateAsync(item); // Creazione nuova
+    }
+    // Non è necessario ricaricare i dati manualmente, poiché invalidateQueries gestisce il refresh
+  };
+
+  const renderError = (error) => (
+    <CAlert color="danger" className="text-center">
+      {error?.message || API_ERROR_MESSAGES.GENERIC_ERROR}
+    </CAlert>
+  );
+
+  const renderLoading = () => (
+    <div className="text-center">
+      <CSpinner color="primary" />
+    </div>
+  );
+
+  const renderEmptyState = () => (
+    <CAlert color="warning" className="text-center">
+      Nessuna record disponibile.
+    </CAlert>
+  );
 
 
 
@@ -60,58 +122,73 @@ const UsersView = () => {
     <CRow>
       <CCol xs={12}>
         <CCard className="mb-4">
-          <CCardHeader>Gestione Utenti
-            <div style={{ display: 'flex', justifyContent: 'space-between', margin: '10px 0' }}>
+          <CCardHeader>
+            <div className="d-flex justify-content-between align-items-center">
+              <h4 className="mb-0">Gestione Utenti</h4>
               <CButtonGroup>
-                <CButton color="primary" className="mb-3" size="sm" onClick={() => handleOpenModal()}>
-                  Nuovo
+                <CButton
+                  color="primary"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedItem(null);
+                    setIsModalVisible(true);
+                  }}
+                >
+                  <CIcon icon={icon.cilPlus} className="me-2" />
                 </CButton>
-                <CButton color="info" className="mb-3" size="sm" onClick={fetchData}>
-                  Reload
+                <CButton
+                  color="info"
+                  size="sm"
+                  onClick={() => queryClient.invalidateQueries([QUERY_KEYS.USERS])}
+                >
+                  <CIcon icon={icon.cilReload} />
                 </CButton>
               </CButtonGroup>
             </div>
           </CCardHeader>
           <CCardBody>
-            {loading ? (
-              <div className="text-center">
-                <CSpinner color="primary" />
-              </div>
+            {isLoading ? (
+              renderLoading()
             ) : error ? (
-              // Mostra errore se c'è stato un problema con la richiesta
-              <CAlert color="danger" className="text-center">
-                {error}
-              </CAlert>
+              renderError(error)
             ) : users.length === 0 ? (
-              // Mostra avviso se non ci sono dati
-              <CAlert color="warning" className="text-center">
-                Nessun utente disponibile.
-              </CAlert>
+              renderEmptyState()
             ) : (
               <CTable>
                 <CTableHead>
                   <CTableRow>
-                    <CTableHeaderCell>ID</CTableHeaderCell>
-                    <CTableHeaderCell>Nome</CTableHeaderCell>
-                    <CTableHeaderCell>Email</CTableHeaderCell>
-                    <CTableHeaderCell>PC Assegnato</CTableHeaderCell>
-                    <CTableHeaderCell>Azioni</CTableHeaderCell>
+                    <CTableHeaderCell scope="col">#ID</CTableHeaderCell>
+                    <CTableHeaderCell scope="col">Nome</CTableHeaderCell>
+                    <CTableHeaderCell scope="col">Email</CTableHeaderCell>
+                    <CTableHeaderCell scope="col">PC</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end" scope="col">Azioni</CTableHeaderCell>
                   </CTableRow>
                 </CTableHead>
                 <CTableBody>
-                  {users.map((user) => (
-                    <CTableRow key={user.id}>
-                      <CTableDataCell>{user.id}</CTableDataCell>
-                      <CTableDataCell>{user.name}</CTableDataCell>
-                      <CTableDataCell>{user.email}</CTableDataCell>
-                      <CTableDataCell>{user.pc_id}</CTableDataCell>
-                      <CTableDataCell>
-                        <CButton color="warning" className="me-2" size="sm">
-                          Modifica
-                        </CButton>
-                        <CButton color="danger" size="sm">
-                          Elimina
-                        </CButton>
+                  {users.map((item) => (
+                    <CTableRow key={item.id}>
+                      <CTableDataCell>{item.id}</CTableDataCell>
+                      <CTableDataCell>{item.name}</CTableDataCell>
+                      <CTableDataCell>{item.email}</CTableDataCell>
+                      <CTableDataCell>{item.pc_id}</CTableDataCell>
+                      <CTableDataCell className="text-end">
+                        <CButtonGroup>
+                          <CButton color="warning" size="sm"
+                            onClick={() => {
+                              setSelectedItem(item);
+                              setIsModalVisible(true);
+                            }}
+                          >
+                            <CIcon icon={icon.cilPencil} />
+                          </CButton>
+                          <CButton
+                            color="danger"
+                            size="sm"
+                            onClick={() => handleDelete(item.id)}
+                          >
+                            <CIcon icon={icon.cilTrash} />
+                          </CButton>
+                        </CButtonGroup>
                       </CTableDataCell>
                     </CTableRow>
                   ))}
@@ -121,13 +198,17 @@ const UsersView = () => {
           </CCardBody>
         </CCard>
       </CCol>
-      <ModalUser
-        visible={isModalVisible}
-        onClose={() => setIsModalVisible(false)}
-        onreload={fetchData}
-      />
+      {isModalVisible && (
+        <ModalNew
+          visible={isModalVisible}
+          onClose={() => setIsModalVisible(false)}
+          onSave={handleSave}
+          selectedUser={selectedItem} // Passa il work selezionato per l'aggiornamento
+        />
+      )}
+      <ConfirmDialog />
     </CRow>
-  )
-}
+  );
+};
 
 export default UsersView

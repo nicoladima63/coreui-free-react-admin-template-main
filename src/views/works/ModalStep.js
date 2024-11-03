@@ -1,36 +1,39 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   CModal, CModalHeader, CModalBody, CModalFooter, CButton,
   CFormInput, CForm, CFormLabel, CAlert
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
-import PCSelect from '../../components/PCSelect';
 
-const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
+import UserSelect from '../../components/UserSelect';
+import WorkSelect from '../../components/WorkSelect';
+
+const ModalStep = ({ visible, onClose, onSave, selectedStep }) => {
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
-    password: '',
-    pc_id: '',
+    order: '',
+    userid: '',
+    workid: '',
+    completed: false
   });
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
-  // useEffect per precompilare il form
   useEffect(() => {
-    if (selectedUser) {
+    if (selectedStep) {
       // Precompilazione campi in caso di modifica
       setFormData({
-        name: selectedUser.name || '',
-        email: selectedUser.email || '',
-        password: selectedUser.password || '',
-        pc_id: selectedUser.pc_id || '',
+        name: selectedStep.name || '',
+        order: selectedStep.order || '',
+        userid: selectedStep.userid || '',
+        workid: selectedStep.workid || '',
+        completed: selectedStep.completed || false
       });
     } else {
       resetForm();
     }
-  }, [selectedUser]);
+  }, [selectedStep]);
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -55,51 +58,55 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
   const resetForm = () => {
     setFormData({
       name: '',
-      email: '',
-      password: '',
-      pc_id: '',
+      order: '',
+      userid: '',
+      workid: '',
+      completed: ''
     });
     setSuccess(false);
     setError(null);
   };
 
+
   return (
     <CModal visible={visible} onClose={onClose}>
       <CModalHeader>
-        <h5>{selectedUser ? 'Modifica' : 'Nuovo'} Utente</h5>
+        <h5>{selectedStep ? 'Modifica Fase' : 'Nuova Fase'}</h5>
       </CModalHeader>
       <CModalBody>
         <CForm onSubmit={handleSubmit}>
+          <CFormLabel>Lavorazione</CFormLabel>
+          <WorkSelect
+            onSelect={(value) => handleChange('workid', value)}
+            selectedValue={formData.workid}
+            required
+          />
+
           <CFormLabel>Nome</CFormLabel>
           <CFormInput
             type="text"
-            placeholder="Nome"
+            placeholder="Nome della fase"
             value={formData.name}
             onChange={(e) => handleChange('name', e.target.value)}
             required
           />
-          <CFormLabel>Email</CFormLabel>
+
+          <CFormLabel>Ordine</CFormLabel>
           <CFormInput
-            type="email"
-            placeholder="indirizzo email"
-            value={formData.email}
-            onChange={(e) => handleChange('email', e.target.value)}
+            type="text"
+            placeholder="Ordine della fase"
+            value={formData.order}
+            onChange={(e) => handleChange('order', e.target.value)}
             required
           />
-          <CFormLabel>Password</CFormLabel>
-          <CFormInput
-            type="password"
-            value={formData.password}
-            onChange={(e) => handleChange('password', e.target.value)}
-            placeholder="una password a caso"
+
+          <CFormLabel>Utente</CFormLabel>
+          <UserSelect
+            onSelect={(value) => handleChange('userid', value)}
+            selectedValue={formData.userid}
             required
           />
-          <CFormLabel>Postazione</CFormLabel>
-          <PCSelect
-            onSelect={(value) => handleChange('pc_id', value)}
-            selectedValue={formData.pc_id}
-            required
-          />
+
           {error && (
             <CAlert color="danger" size="sm">
               {error}
@@ -107,15 +114,15 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
           )}
           {success && (
             <CAlert color="success" size="sm">
-              {selectedUser ? 'Record modificato con successo!' : 'Record aggiunto con successo!'}
+              {selectedStep ? 'Record modificato con successo!' : 'Record aggiunto con successo!'}
             </CAlert>
           )}
           <CModalFooter>
             <CButton color="secondary" onClick={onClose} size="sm">
-              <CIcon icon={icon.cilX} size="lg" />
+              <CIcon icon={icon.cilReload} size="lg" />
             </CButton>
             <CButton type="submit" color="primary" size="sm">
-              <CIcon icon={selectedUser ? icon.cilSave : icon.cilPlus} size="lg" />
+              <CIcon icon={selectedStep ? icon.cilSave : icon.cilPlus} size="lg" />
             </CButton>
           </CModalFooter>
         </CForm>
@@ -124,4 +131,4 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
   );
 };
 
-export default ModalUser;
+export default ModalStep;

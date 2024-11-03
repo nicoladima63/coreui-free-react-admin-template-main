@@ -1,36 +1,38 @@
 import React, { useEffect, useState } from 'react';
 import {
-  CModal, CModalHeader, CModalBody, CModalFooter, CButton,
-  CFormInput, CForm, CFormLabel, CAlert
+  CModal,
+  CModalHeader,
+  CModalBody,
+  CModalFooter,
+  CInputGroup,
+  CButton,
+  CForm,
+  CFormLabel,
+  CFormInput,
+  CAlert,
 } from '@coreui/react';
-import CIcon from '@coreui/icons-react';
-import * as icon from '@coreui/icons';
-import PCSelect from '../../components/PCSelect';
 
-const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
+const ModalProvider = ({ visible, onClose, onSave, selectedItem }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: '',
-    pc_id: '',
+    phone: ''
   });
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
-  // useEffect per precompilare il form
   useEffect(() => {
-    if (selectedUser) {
+    if (selectedItem) {
       // Precompilazione campi in caso di modifica
       setFormData({
-        name: selectedUser.name || '',
-        email: selectedUser.email || '',
-        password: selectedUser.password || '',
-        pc_id: selectedUser.pc_id || '',
+        name: selectedItem.name || '',
+        email: selectedItem.email || '',
+        phone: selectedItem.phone || ''
       });
     } else {
       resetForm();
     }
-  }, [selectedUser]);
+  }, [selectedItem]);
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -53,12 +55,7 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
   };
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      email: '',
-      password: '',
-      pc_id: '',
-    });
+    setFormData({ name: '', email: '', phone: '' });
     setSuccess(false);
     setError(null);
   };
@@ -66,38 +63,32 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
   return (
     <CModal visible={visible} onClose={onClose}>
       <CModalHeader>
-        <h5>{selectedUser ? 'Modifica' : 'Nuovo'} Utente</h5>
+        <h5>{selectedItem ? 'Modifica Fornitore' : 'Nuovo Fornitore'}</h5>
       </CModalHeader>
       <CModalBody>
         <CForm onSubmit={handleSubmit}>
           <CFormLabel>Nome</CFormLabel>
           <CFormInput
             type="text"
-            placeholder="Nome"
             value={formData.name}
             onChange={(e) => handleChange('name', e.target.value)}
+            placeholder="Inserisci il nome"
             required
           />
           <CFormLabel>Email</CFormLabel>
           <CFormInput
             type="email"
-            placeholder="indirizzo email"
             value={formData.email}
             onChange={(e) => handleChange('email', e.target.value)}
+            placeholder="Inserisci l'email"
             required
           />
-          <CFormLabel>Password</CFormLabel>
+          <CFormLabel>Telefono</CFormLabel>
           <CFormInput
-            type="password"
-            value={formData.password}
-            onChange={(e) => handleChange('password', e.target.value)}
-            placeholder="una password a caso"
-            required
-          />
-          <CFormLabel>Postazione</CFormLabel>
-          <PCSelect
-            onSelect={(value) => handleChange('pc_id', value)}
-            selectedValue={formData.pc_id}
+            type="number"
+            value={formData.phone}
+            onChange={(e) => handleChange('phone', e.target.value)}
+            placeholder="Inserisci il telefono"
             required
           />
           {error && (
@@ -107,15 +98,15 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
           )}
           {success && (
             <CAlert color="success" size="sm">
-              {selectedUser ? 'Record modificato con successo!' : 'Record aggiunto con successo!'}
+              Record {selectedItem ? 'modificato' : 'aggiunto'} con successo!
             </CAlert>
           )}
           <CModalFooter>
             <CButton color="secondary" onClick={onClose} size="sm">
-              <CIcon icon={icon.cilX} size="lg" />
+              Annulla
             </CButton>
             <CButton type="submit" color="primary" size="sm">
-              <CIcon icon={selectedUser ? icon.cilSave : icon.cilPlus} size="lg" />
+              {selectedItem ? 'Salva Modifiche' : 'Aggiungi'}
             </CButton>
           </CModalFooter>
         </CForm>
@@ -124,4 +115,4 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
   );
 };
 
-export default ModalUser;
+export default ModalProvider
