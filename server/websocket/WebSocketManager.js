@@ -1,0 +1,190 @@
+// websocket/WebSocketManager.js
+const WebSocket = require('ws');
+const jwt = require('jsonwebtoken');
+const db = require('../models');
+class WebSocketManager {
+  constructor() {
+    this.clients = new Map();
+  }
+
+  initialize(server) {
+    this.wss = new WebSocket.Server({
+      server,
+      // Aggiungi questo per vedere i dettagli della richiesta
+      verifyClient: (info, cb) => {
+        cb(true);
+      }
+    });
+    this.wss.on('connection', this.handleConnection.bind(this));
+  }
+  async handleConnection(ws, req) {
+
+    try {
+      // Estrai il token dall'URL della richiesta WebSocket
+      const token = new URLSearchParams(req.url.slice(1)).get('token');
+
+      if (!token) {
+        ws.close(4001, 'Token non fornito');
+        return;
+      }
+
+      // Verifica il token
+      const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+      ws.userId = decoded.id;
+      ws.pcId = decoded.pc_id; // Aggiungi il pc_id se lo usi
+
+      // Aggiorna stato utente
+      await db.User.update(
+        { online: true },
+        { where: { id: ws.userId } }
+      );
+
+      // Salva la connessione
+      this.clients.set(ws.userId, ws);
+
+      // Notifica altri utenti
+      this.broadcastUserStatus(ws.userId, true);
+
+      // Gestione messaggi in arrivo
+      ws.on('message', async (data) => {
+        try {
+          const message = JSON.parse(data);
+          await this.handleMessage(ws, message);
+        } catch (error) {
+          ws.send(JSON.stringify({
+            type: 'error',
+            error: 'Formato messaggio non valido'
+          }));
+        }
+      });
+
+      // Gestione disconnessione
+      ws.on('close', async () => {
+        await this.handleDisconnection(ws.userId);
+      });
+
+      // Invia conferma connessione
+      ws.send(JSON.stringify({
+        type: 'connected',
+        userId: ws.userId
+      }));
+
+    } catch (error) {
+      console.error('WebSocket connection error:', error);
+      ws.close(4002, 'Autenticazione fallita');
+    }
+  }
+
+  async handleMessage(ws, message) {
+    try {
+      switch (message.type) {
+        case 'chat':
+          await this.handleChatMessage(ws, message);
+          break;
+        case 'read':
+          await this.handleReadReceipt(ws, message);
+          break;
+        default:
+          ws.send(JSON.stringify({
+            type: 'error',
+            error: 'Tipo messaggio sconosciuto'
+          }));
+      }
+    } catch (error) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        error: 'Errore nell\'elaborazione del messaggio'
+      }));
+    }
+  }
+
+  async handleChatMessage(ws, message) {
+    // Salva il messaggio
+    const newMessage = await db.Message.create({
+      fromId: ws.userId,
+      toId: message.to,
+      content: message.content
+    });
+
+    // Recupera info mittente
+    const sender = await db.User.findByPk(ws.userId, {
+      attributes: ['id', 'name', 'pc_id']
+    });
+
+    const recipient = await db.User.findByPk(message.to, {
+      attributes: ['id', 'pc_id']
+    });
+
+    const messageToSend = {
+      type: 'chat',
+      id: newMessage.id,
+      from: {
+        id: sender.id,
+        name: sender.name,
+        pc_id: sender.pc_id
+      },
+      content: message.content,
+      timestamp: newMessage.createdAt
+    };
+
+    // Invia al destinatario se online
+    const recipientWs = this.clients.get(message.to);
+    if (recipientWs) {
+      recipientWs.send(JSON.stringify(messageToSend));
+    }
+
+    // Conferma al mittente
+    ws.send(JSON.stringify({
+      type: 'sent',
+      messageId: newMessage.id,
+      timestamp: newMessage.createdAt
+    }));
+  }
+
+  async handleDisconnection(userId) {
+    // Aggiorna stato utente
+    await db.User.update(
+      {
+        online: false,
+        lastSeen: new Date()
+      },
+      { where: { id: userId } }
+    );
+
+    // Rimuovi dalla mappa
+    this.clients.delete(userId);
+
+    // Notifica altri utenti
+    this.broadcastUserStatus(userId, false);
+
+    console.log(`User ${userId} disconnected`);
+  }
+
+  broadcastUserStatus(userId, online) {
+    const message = JSON.stringify({
+      type: 'userStatus',
+      userId,
+      online,
+      timestamp: new Date()
+    });
+
+    this.clients.forEach((client, clientId) => {
+      if (clientId !== userId && client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  }
+
+  // Metodo per inviare notifiche a un utente specifico
+  sendNotification(userId, notification) {
+    const ws = this.clients.get(userId);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'notification',
+        ...notification
+      }));
+    }
+  }
+}
+
+module.exports = new WebSocketManager();

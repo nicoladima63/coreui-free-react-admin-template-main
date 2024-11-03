@@ -13,39 +13,72 @@ import {
   CInputGroup,
   CInputGroupText,
   CRow,
+  CAlert,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilLockLocked } from '@coreui/icons'
 import PCSelect from 'src/components/PCSelect';
 
-
 const Register = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    pc_id: 1
+  });
   const [error, setError] = useState(null);
-  const [selectedPC, setSelectedPC] = useState('');
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    try {
-      const response = await axios.post('http://localhost:5000/api/users/login', {
-        username, email, password, selectedPC
-      });
-      // Salva il token JWT nel localStorage
-      localStorage.setItem('token', response.data.accessToken);
-      navigate('/dashboard'); // Reindirizza alla dashboard
-    } catch (err) {
-      if (err.response && err.response.data) {
-        // Gestisci il messaggio di errore dal server
-        setError(err.response.data.error);
-      } else {
-        // Gestisci gli errori non legati alla risposta del server (es. problemi di rete)
-        setError('Errore di rete. Riprova.');
-      }
+    setError(null);
+
+    // Validazione
+    if (formData.password !== formData.confirmPassword) {
+      setError('Le password non coincidono');
+      return;
     }
 
-  };
+    try {
+      // Registrazione
+      const registerResponse = await axios.post('http://localhost:5000/api/users/register', {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        pc_id: formData.pc_id
+      });
 
+      console.log('Registration successful:', registerResponse.data);
+
+      // Login automatico dopo la registrazione
+      const loginResponse = await axios.post('http://localhost:5000/api/users/login', {
+        email: formData.email,
+        password: formData.password
+      });
+
+      // Salva il token
+      localStorage.setItem('token', loginResponse.data.accessToken);
+      console.log('Token salvato:', loginResponse.data.accessToken);
+
+      // Reindirizza
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Registration error:', err);
+      if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else {
+        setError('Errore durante la registrazione. Riprova.');
+      }
+    }
+  };
 
   return (
     <div className="bg-body-tertiary min-vh-100 d-flex flex-row align-items-center">
@@ -57,43 +90,80 @@ const Register = () => {
                 <CForm onSubmit={handleRegister}>
                   <h1>Register</h1>
                   <p className="text-body-secondary">Create your account</p>
+
+                  {error && (
+                    <CAlert color="danger" className="mb-3">
+                      {error}
+                    </CAlert>
+                  )}
+
+                  <CInputGroup className="mb-3">
+                    <CInputGroupText>@</CInputGroupText>
+                    <CFormInput
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      placeholder="il tuo nome"
+                      autoComplete="nome"
+                      required
+                    />
+                  </CInputGroup>
+
                   <CInputGroup className="mb-3">
                     <CInputGroupText>@</CInputGroupText>
                     <CFormInput
                       type="email"
-                      id="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
                       placeholder="Email"
                       autoComplete="email"
                       required
                     />
                   </CInputGroup>
+
                   <CInputGroup className="mb-3">
                     <CInputGroupText>
                       <CIcon icon={cilLockLocked} />
                     </CInputGroupText>
                     <CFormInput
                       type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
                       placeholder="Password"
                       autoComplete="new-password"
+                      required
                     />
                   </CInputGroup>
+
                   <CInputGroup className="mb-4">
                     <CInputGroupText>
                       <CIcon icon={cilLockLocked} />
                     </CInputGroupText>
                     <CFormInput
                       type="password"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
                       placeholder="Repeat password"
                       autoComplete="new-password"
+                      required
                     />
                   </CInputGroup>
+
                   <CInputGroup className="mb-4">
-                  <PCSelect onSelect={(value) => setSelectedPC(value)} />
+                    <PCSelect
+                      value={formData.pc_id}
+                      onSelect={(value) => setFormData(prev => ({ ...prev, pc_id: value }))}
+                    />
                   </CInputGroup>
-                    <div className="d-grid">
-                    <CButton color="success">Create Account</CButton>
+
+                  <div className="d-grid">
+                    <CButton type="submit" color="success">
+                      Create Account
+                    </CButton>
                   </div>
                 </CForm>
               </CCardBody>
@@ -102,7 +172,7 @@ const Register = () => {
         </CRow>
       </CContainer>
     </div>
-  )
-}
+  );
+};
 
-export default Register
+export default Register;

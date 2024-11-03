@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router-dom';
+import { useWebSocket } from '../../../context/WebSocketContext'; // Aggiungi questo import
+import { useToast } from '../../../hooks/useToast'; // Aggiungi questo se lo stai usando
 import {
   CButton,
   CCard,
@@ -14,38 +16,58 @@ import {
   CInputGroup,
   CInputGroupText,
   CRow,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilLockLocked, cilUser } from '@coreui/icons'
+} from '@coreui/react';
+import CIcon from '@coreui/icons-react';
+import { cilLockLocked, cilUser } from '@coreui/icons';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { connect } = useWebSocket(); // Aggiungi questo
+  const { showSuccess, showError } = useToast(); // Se stai usando useToast
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setError(null);
+
     try {
       const response = await axios.post('http://localhost:5000/api/users/login', {
         email,
         password,
       });
+
       // Salva il token JWT nel localStorage
       localStorage.setItem('token', response.data.accessToken);
-      navigate('/dashboard'); // Reindirizza alla dashboard
+
+      // Aggiungi questi:
+      // Configura axios per le future richieste
+      axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.accessToken}`;
+
+      // Connetti WebSocket
+      try {
+        await connect();
+        showSuccess?.('Login effettuato con successo');
+      } catch (wsError) {
+        console.error('WebSocket connection error:', wsError);
+        // Non bloccare il login se il WebSocket fallisce
+      }
+
+      // Reindirizza alla dashboard
+      navigate('/dashboard');
     } catch (err) {
       if (err.response && err.response.data) {
-        // Gestisci il messaggio di errore dal server
-        setError(err.response.data.error);
+        const errorMessage = err.response.data.error || 'Errore durante il login';
+        setError(errorMessage);
+        showError?.(errorMessage);
       } else {
-        // Gestisci gli errori non legati alla risposta del server (es. problemi di rete)
-        setError('Errore di rete. Riprova.');
+        const errorMessage = 'Errore di rete. Riprova.';
+        setError(errorMessage);
+        showError?.(errorMessage);
       }
     }
-
   };
-
 
   return (
     <div className="bg-body-tertiary min-vh-100 d-flex flex-row align-items-center">

@@ -102,3 +102,7 @@ export const PCService = {
   deletePc: (id) => apiClient.delete(`/pcs/${id}`),
 };
 
+export const MessageService = {
+  getMessages: (userId) => apiClient.get(`/messages/${userId}`),
+  markAsRead: (messageId) => apiClient.put(`/messages/${messageId}/read`),
+};

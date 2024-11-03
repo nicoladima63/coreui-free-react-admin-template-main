@@ -21,11 +21,5 @@ const User = sequelize.define('User', {
   }
 });
 
-// Sincronizza il modello con il database
-const syncDatabase = async () => {
-  await User.sync();
-};
-
-syncDatabase();
 
 module.exports = User;

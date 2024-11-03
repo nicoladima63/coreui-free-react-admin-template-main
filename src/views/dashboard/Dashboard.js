@@ -21,7 +21,6 @@ import FilterGroupButton from '../../components/FilterGroupButton';
 import ModalNew from './ModalNew';
 
 import * as Controller from '../../axioService';
-import { connectWebSocket } from '../../websocket';
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState({});
@@ -33,19 +32,6 @@ const Dashboard = () => {
   const [modalAddVisible, setModalAddVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const [notifications, setNotifications] = useState([]);
-  const handleNewNotification = (notification) => {
-    setNotifications((prev) => [...prev, notification]);
-  };
-  // Aggiorna il websocket per usare questa funzione
-  useEffect(() => {
-    const wsUrl = 'ws://localhost:5000';
-    const ws = connectWebSocket(wsUrl, handleNewNotification); // Passa la funzione di gestione notifiche
-
-    return () => {
-      ws.close();
-    };
-  }, []);
 
   const loadTasksForDashboard = async () => {
     setLoading(true);
@@ -151,16 +137,6 @@ const Dashboard = () => {
           </CCardHeader>
 
           <CCardBody>
-            {notifications.length > 0 && (
-              <div>
-                {notifications.map((note, index) => (
-                  <CAlert key={index} color="info">
-                    {note.message}
-                  </CAlert>
-                ))}
-              </div>
-            )}
-
             {loading ? (
               <div className="text-center">
                 <CSpinner color="primary" />

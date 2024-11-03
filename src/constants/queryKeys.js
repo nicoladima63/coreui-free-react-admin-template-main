@@ -7,4 +7,6 @@ export const QUERY_KEYS = {
   STEPSTEMP: 'stepstemp',
   PROVIDERS: 'providers',
   CATEGORIES: 'categories',
+  MESSAGES: 'messages',
+  PCS: 'pcs',
 };
