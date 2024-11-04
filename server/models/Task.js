@@ -9,6 +9,10 @@ const Task = sequelize.define('Task', {
   workid: {
     type: DataTypes.INTEGER,
     allowNull: false,
+    references: {
+      model: 'Work',
+      key: 'id'
+    }
   },
   deliveryDate: {
     type: DataTypes.DATE,
@@ -20,11 +24,6 @@ const Task = sequelize.define('Task', {
   },
 });
 
-const syncDatabase = async () => {
-  await Task.sync();
-};
-
-syncDatabase();
 
 
 module.exports = Task;

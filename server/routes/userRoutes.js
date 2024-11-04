@@ -60,10 +60,14 @@ router.post('/register',
 // Login dell'utente
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-
   try {
     // Trova l'utente in base all'email
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({
+      where: { email },
+      // Specifica gli attributi che vuoi recuperare
+      attributes: ['id', 'email', 'name', 'password'] // Aggiungi altri campi necessari
+    });
+
     if (!user) {
       return res.status(400).json({ error: 'Utente non trovato' });
     }
@@ -81,11 +85,23 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1h' }
     );
 
-    // Restituisce il token JWT
-    res.json({ accessToken });
+    // Prepara l'oggetto user escludendo dati sensibili
+    const userForClient = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      // Aggiungi qui altri campi che vuoi inviare al client
+    };
+
+    // Restituisce sia il token che i dati dell'utente
+    res.json({
+      accessToken,
+      user: userForClient
+    });
+
   } catch (error) {
+    console.error('Errore durante il login:', error);
     res.status(500).json({ error: 'Errore nel login' });
   }
 });
-
 module.exports = router;

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSelector } from 'react-redux';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   CCard, CCardText, CCardTitle, CCardFooter,
@@ -18,6 +19,7 @@ import * as icon from '@coreui/icons';
 import FilterGroupButton from '../../components/FilterGroupButton';
 import ModalNew from './ModalNew';
 import ModalSteps from './ModalSteps';
+import MessagesSection from './MessagesSection';
 import { TasksService,StepsService } from '../../services/api';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { QUERY_KEYS } from '../../constants/queryKeys';
@@ -28,6 +30,7 @@ const Dashboard = () => {
   const [selectedFilter, setSelectedFilter] = useState('incomplete');
   const [modalAddVisible, setModalAddVisible] = useState(false);
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
+  const currentUser = useSelector((state) => state.auth?.user);
 
   // Query per ottenere i task della dashboard
   const {
@@ -92,8 +95,13 @@ const Dashboard = () => {
   const filteredTasks = getFilteredTasks();
 
   return (
-    <CRow>
-      <CCol xs={12}>
+    <CRow style={{ width: 1600 }}>
+      <CCol xs={12} xl={2}>
+        <h5>messaggi</h5>
+        {currentUser && <MessagesSection userId={currentUser.id} />}
+      </CCol>
+
+      <CCol xs={12} lg={10}>
         <CCard className="mb-4">
           <CCardHeader>
             <div className="d-flex justify-content-between align-items-center">
@@ -241,7 +249,6 @@ const TaskWidget = ({ task }) => {
           </CCardFooter>
         </CCard>
       </CCol>
-
       <ModalSteps
         visible={isStepsModalVisible}
         onClose={() => setIsStepsModalVisible(false)}

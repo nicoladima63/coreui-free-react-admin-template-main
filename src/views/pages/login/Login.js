@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { useWebSocket } from '../../../context/WebSocketContext'; // Aggiungi questo import
-import { useToast } from '../../../hooks/useToast'; // Aggiungi questo se lo stai usando
+import { useWebSocket } from '../../../context/WebSocketContext';
+import { useToast } from '../../../hooks/useToast';
 import {
   CButton,
   CCard,
@@ -21,12 +22,13 @@ import CIcon from '@coreui/icons-react';
 import { cilLockLocked, cilUser } from '@coreui/icons';
 
 const Login = () => {
+  const dispatch = useDispatch();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const { connect } = useWebSocket(); // Aggiungi questo
-  const { showSuccess, showError } = useToast(); // Se stai usando useToast
+  const { connect } = useWebSocket();
+  const { showSuccess, showError } = useToast();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -39,11 +41,17 @@ const Login = () => {
       });
 
       // Salva il token JWT nel localStorage
-      localStorage.setItem('token', response.data.accessToken);
+      const { accessToken, user } = response.data;
+      localStorage.setItem('token', accessToken);
 
-      // Aggiungi questi:
       // Configura axios per le future richieste
-      axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.accessToken}`;
+      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+
+      // Dispatch dell'azione di login nel Redux store
+      dispatch({
+        type: 'LOGIN_SUCCESS',
+        user: user // Questo salverà l'utente sia nel Redux store che in localStorage
+      });
 
       // Connetti WebSocket
       try {
@@ -107,16 +115,17 @@ const Login = () => {
                       />
                     </CInputGroup>
                     <CRow>
-                      {error && <p style={{ color: 'red' }}>{error}</p>}
-
+                      {error && (
+                        <CCol xs={12}>
+                          <div className="text-danger text-center mb-3">{error}</div>
+                        </CCol>
+                      )}
                       <CCol xs={12} className="text-center">
                         <CButton size="sm" color="primary" className="px-6" type="submit">
                           Accedi
                         </CButton>
                       </CCol>
-                      <CRow>
-                    </CRow>
-                      <CCol xs={12} className="text-center">
+                      <CCol xs={12} className="text-center mt-3">
                         <CButton color="link" className="px-6">
                           Password dimenticata?
                         </CButton>
@@ -146,7 +155,7 @@ const Login = () => {
         </CRow>
       </CContainer>
     </div>
-  )
-}
+  );
+};
 
-export default Login
+export default Login;

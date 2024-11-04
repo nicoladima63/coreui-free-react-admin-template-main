@@ -9,10 +9,18 @@ const Work = sequelize.define('Work', {
   providerid: {
     type: DataTypes.INTEGER,
     allowNull: false,
+    references: {
+      model: 'Provider',
+      key: 'id'
+    }
   },
   categoryid: {
     type: DataTypes.INTEGER,
     allowNull: false,
+    references: {
+      model: 'Category',
+      key: 'id'
+    }
   },
 });
 
