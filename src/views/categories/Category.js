@@ -42,7 +42,7 @@ const CategoriesView = () => {
     queryFn: CategoriesService.getCategories,
   });
 
-  // Mutation per creare un nuovo work
+  // Mutation per creare un nuovo record
   const createMutation = useMutation({
     mutationFn: CategoriesService.createCategory,
     onSuccess: () => {
@@ -54,7 +54,7 @@ const CategoriesView = () => {
     },
   });
 
-  // Mutation per aggiornare un work
+  // Mutation per aggiornare un record
   const updateMutation = useMutation({
     mutationFn: CategoriesService.updateCategory,
     onSuccess: () => {

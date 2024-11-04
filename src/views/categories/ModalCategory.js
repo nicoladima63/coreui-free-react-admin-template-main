@@ -1,16 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
-  CModal,
-  CModalHeader,
-  CModalBody,
-  CModalFooter,
-  CInputGroup,
-  CButton,
-  CForm,
-  CFormLabel,
-  CFormInput,
-  CAlert,
+  CModal, CModalHeader, CModalBody, CModalFooter, CButton,
+  CFormInput, CForm, CFormLabel, CAlert, CBadge
 } from '@coreui/react';
+import CIcon from '@coreui/icons-react';
+import * as icon from '@coreui/icons';
 
 const ModalCategory = ({ visible, onClose, onSave, selectedItem }) => {
   const [formData, setFormData] = useState({
@@ -86,15 +80,15 @@ const ModalCategory = ({ visible, onClose, onSave, selectedItem }) => {
           )}
           {success && (
             <CAlert color="success" size="sm">
-              Record {item ? 'modificato' : 'aggiunto'} con successo!
+              {selectedItem ? 'Record modificato con successo!' : 'Record aggiunto con successo!'}
             </CAlert>
           )}
           <CModalFooter>
             <CButton color="secondary" onClick={onClose} size="sm">
-              Annulla
+              <CIcon icon={icon.cilReload} size="lg" />
             </CButton>
             <CButton type="submit" color="primary" size="sm">
-              {selectedItem ? 'Salva Modifiche' : 'Aggiungi'}
+              <CIcon icon={selectedItem ? icon.cilSave : icon.cilPlus} size="lg" />
             </CButton>
           </CModalFooter>
         </CForm>

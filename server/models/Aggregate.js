@@ -61,6 +61,7 @@ const getStepsWithDetails = async () => {
     throw error;
   }
 };
+
 const getStepsForWork = async (workid) => {
   console.log('workid:', workid);
   try {
@@ -143,7 +144,6 @@ const getTasksForDashboard2 = async () => {
     throw error;
   }
 };
-
 
 const getTasksForDashboard = async () => {
   try {

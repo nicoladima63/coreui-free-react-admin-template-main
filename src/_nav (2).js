@@ -22,16 +22,15 @@ const _nav = [
     to: '/dashboard',
     icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
   },
-
   {
     component: CNavTitle,
     name: 'MESSAGGI',
   },
   {
     component: CNavItem,
-    name: 'Invia Messaggio',
+    name: 'Colors',
     to: '/theme/colors',
-    icon: <CIcon icon={cilCursor} customClassName="nav-icon" />,
+    icon: <CIcon icon={cilDrop} customClassName="nav-icon" />,
   },
   {
     component: CNavItem,
@@ -39,10 +38,9 @@ const _nav = [
     to: '/theme/typography',
     icon: <CIcon icon={cilPencil} customClassName="nav-icon" />,
   },
-
   {
     component: CNavTitle,
-    name: 'FLUSSI DI LAVORO',
+    name: 'Components',
   },
   {
     component: CNavGroup,

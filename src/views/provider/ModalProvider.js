@@ -98,15 +98,15 @@ const ModalProvider = ({ visible, onClose, onSave, selectedItem }) => {
           )}
           {success && (
             <CAlert color="success" size="sm">
-              Record {selectedItem ? 'modificato' : 'aggiunto'} con successo!
+              {selectedItem ? 'Record modificato con successo!' : 'Record aggiunto con successo!'}
             </CAlert>
           )}
           <CModalFooter>
             <CButton color="secondary" onClick={onClose} size="sm">
-              Annulla
+              <CIcon icon={icon.cilReload} size="lg" />
             </CButton>
             <CButton type="submit" color="primary" size="sm">
-              {selectedItem ? 'Salva Modifiche' : 'Aggiungi'}
+              <CIcon icon={selectedItem ? icon.cilSave : icon.cilPlus} size="lg" />
             </CButton>
           </CModalFooter>
         </CForm>

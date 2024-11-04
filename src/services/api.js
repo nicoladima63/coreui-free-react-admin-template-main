@@ -33,7 +33,8 @@ apiClient.interceptors.response.use(
 
 // Servizio per gestire i tasks
 export const TasksService = {
-  getTasks: () => apiClient.get('/aggregate/tasks'),
+  getTasksForDashboard: () => apiClient.get('/aggregate/dashboard'),
+  getTasks: () => apiClient.get('/tasks'),
   getTask: (id) => apiClient.get(`/tasks/${id}`),
   createTask: (data) => apiClient.post('/tasks', data),
   updateTask: (id, data) => apiClient.put(`/tasks/${id}`, data),
@@ -56,6 +57,11 @@ export const StepsService = {
   createStep: (data) => apiClient.post('/steps', data),
   updateStep: (id, data) => apiClient.put(`/steps/${id}`, data),
   deleteStep: (id) => apiClient.delete(`/steps/${id}`),
+  updateStepStatus: async (stepId, completed) => {
+    const response = await apiClient.patch(`/steps/${stepId}`, { completed });
+    return response.data;
+  },
+
 };
 
 export const StepsTempService = {
