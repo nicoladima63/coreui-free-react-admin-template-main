@@ -109,14 +109,13 @@ export const PCService = {
 };
 
 export const MessageService = {
-  getMessages: (userId) => apiClient.get(`/messages/${userId}`),
-  markAsRead: (messageId) => apiClient.put(`/messages/${messageId}/read`),
-
-  getMessagesForUser: (userId) =>
-    apiClient.get(`/aggregate/messages?userId=${userId}`),
+  getMessages: (userId) => apiClient.get(`/messages`),
+  getMessagesForUser: (userId) => apiClient.get(`/messages/${userId}`),
 
   markAsRead: async (messageId) => {
     const response = await apiClient.patch(`/messages/${messageId}`, { read: true });
     return response.data;
   },
+  markAsRead1: (messageId) => apiClient.put(`/messages/${messageId}/read`),
+
 };

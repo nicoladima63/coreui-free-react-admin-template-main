@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  CCard, CCardText, CCardTitle, CCardFooter,
+  CCard, CCardText, CCardTitle, CCardFooter, CContainer,
   CCardBody,
   CCardHeader,
   CCol,
@@ -31,6 +31,8 @@ const Dashboard = () => {
   const [modalAddVisible, setModalAddVisible] = useState(false);
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
   const currentUser = useSelector((state) => state.auth?.user);
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+  const user = localStorage.getItem('user');
 
   // Query per ottenere i task della dashboard
   const {
@@ -95,10 +97,12 @@ const Dashboard = () => {
   const filteredTasks = getFilteredTasks();
 
   return (
-    <CRow style={{ width: 1600 }}>
+    <CRow>
       <CCol xs={12} xl={2}>
-        <h5>messaggi</h5>
         {currentUser && <MessagesSection userId={currentUser.id} />}
+        {currentUser.id}
+        {isAuthenticated  && 'ciccioview'}
+
       </CCol>
 
       <CCol xs={12} lg={10}>
@@ -155,7 +159,7 @@ const Dashboard = () => {
         />
       )}
       <ConfirmDialog />
-    </CRow>
+      </CRow>
   );
 };
 
