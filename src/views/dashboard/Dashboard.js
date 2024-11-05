@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { useWebSocket } from '../../context/WebSocketContext';
+
 import {
-  CCard, CCardText, CCardTitle, CCardFooter, CContainer,
+  CCard, CCardText, CCardTitle, CCardFooter, CBadge,
   CCardBody,
   CCardHeader,
   CCol,
@@ -31,10 +33,10 @@ const Dashboard = () => {
   const [selectedFilter, setSelectedFilter] = useState('incomplete');
   const [modalAddVisible, setModalAddVisible] = useState(false);
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
-  const currentUser = useSelector((state) => state.auth?.user);
+  const currentUser = useSelector((state) => state.auth.user);
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
-  const user = localStorage.getItem('user');
-  const navigate = useNavigate();
+  const { isConnected } = useWebSocket();
+
   // Query per ottenere i task della dashboard
   const {
     data: tasks = [],
@@ -102,9 +104,11 @@ const Dashboard = () => {
     <CRow>
       <CCol xs={12} xl={2}>
         <div>
-          {currentUser && <MessagesSection userId={currentUser.id} />}
-          {currentUser.id}
-          {isAuthenticated}
+          <CBadge color={isConnected ? 'success' : 'danger'}>
+            {isConnected ? 'Connesso' : 'Disconnesso'}
+          </CBadge>
+
+        {/*  {currentUser && <MessagesSection userId={currentUser.id} />}*/}
         </div>
       </CCol>
 
