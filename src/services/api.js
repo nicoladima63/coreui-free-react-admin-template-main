@@ -112,10 +112,10 @@ export const MessageService = {
   getMessages: (userId) => apiClient.get(`/messages`),
   getMessagesForUser: (userId) => apiClient.get(`/messages/${userId}`),
 
-  markAsRead: async (messageId) => {
+  markAsRead1: async (messageId) => {
     const response = await apiClient.patch(`/messages/${messageId}`, { read: true });
     return response.data;
   },
-  markAsRead1: (messageId) => apiClient.put(`/messages/${messageId}/read`),
+  markAsRead: (messageId) => apiClient.put(`/messages/${messageId}/read`),
 
 };

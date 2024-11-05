@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import {
   CCard, CCardText, CCardTitle, CCardFooter, CContainer,
   CCardBody,
@@ -20,7 +21,7 @@ import FilterGroupButton from '../../components/FilterGroupButton';
 import ModalNew from './ModalNew';
 import ModalSteps from './ModalSteps';
 import MessagesSection from './MessagesSection';
-import { TasksService,StepsService } from '../../services/api';
+import { TasksService, StepsService } from '../../services/api';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { QUERY_KEYS } from '../../constants/queryKeys';
 import { API_ERROR_MESSAGES } from '../../constants/errorMessages';
@@ -33,7 +34,7 @@ const Dashboard = () => {
   const currentUser = useSelector((state) => state.auth?.user);
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const user = localStorage.getItem('user');
-
+  const navigate = useNavigate();
   // Query per ottenere i task della dashboard
   const {
     data: tasks = [],
@@ -55,6 +56,7 @@ const Dashboard = () => {
       console.error('Errore durante la creazione del task:', error);
     },
   });
+
 
   // Filtra i task in base al filtro selezionato
   const getFilteredTasks = () => {
@@ -99,10 +101,11 @@ const Dashboard = () => {
   return (
     <CRow>
       <CCol xs={12} xl={2}>
-        {currentUser && <MessagesSection userId={currentUser.id} />}
-        {currentUser.id}
-        {isAuthenticated  && 'ciccioview'}
-
+        <div>
+          {currentUser && <MessagesSection userId={currentUser.id} />}
+          {currentUser.id}
+          {isAuthenticated}
+        </div>
       </CCol>
 
       <CCol xs={12} lg={10}>
@@ -159,7 +162,7 @@ const Dashboard = () => {
         />
       )}
       <ConfirmDialog />
-      </CRow>
+    </CRow>
   );
 };
 

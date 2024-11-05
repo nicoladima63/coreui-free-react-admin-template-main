@@ -2,7 +2,35 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models');
+const sequelize = db.sequelize;
 const auth = require('../middleware/authMiddleware'); // Il tuo middleware di autenticazione
+
+// Get all messages in the table
+router.get('/all', auth, async (req, res) => {
+  try {
+    const messages = await db.Message.findAll({
+      include: [
+        {
+          model: db.User,
+          as: 'sender',
+          attributes: ['id', 'name', 'pc_id']
+        },
+        {
+          model: db.User,
+          as: 'recipient',
+          attributes: ['id', 'name', 'pc_id']
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json(messages);
+  } catch (error) {
+    console.error('Error fetching all messages:', error);
+    res.status(500).json({ error: 'Errore nel recupero di tutti i messaggi' });
+  }
+});
+
 
 // Get messages for a specific conversation
 router.get('/:userId', auth, async (req, res) => {

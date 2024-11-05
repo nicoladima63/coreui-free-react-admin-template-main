@@ -1,4 +1,7 @@
-// models/index.js
+const sequelize = require('../database'); // Importa sequelize dall'istanza di database
+const { DataTypes } = require('sequelize');
+
+// Definizione dei modelli
 const User = require('./User');
 const Message = require('./Message');
 
@@ -23,7 +26,9 @@ Message.belongsTo(User, {
   foreignKey: 'toId'
 });
 
+// Esporta i modelli e sequelize
 module.exports = {
+  sequelize, // Esportiamo sequelize per altri usi
   User,
   Message
 };
