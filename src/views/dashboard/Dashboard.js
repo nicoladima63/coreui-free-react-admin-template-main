@@ -35,7 +35,7 @@ const Dashboard = () => {
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
   const currentUser = useSelector((state) => state.auth.user);
   //const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
-
+  const [user, setUser] = useState({});
 
   const { isConnected } = useWebSocket();
   const auth = useSelector(state => state.auth);
@@ -43,6 +43,8 @@ const Dashboard = () => {
     console.log('Auth state:', auth);
     console.log('LocalStorage user:', localStorage.getItem('user'));
     console.log('LocalStorage token:', localStorage.getItem('token'));
+    setUser(localStorage.getItem('user'))
+
   }, [auth]);
 
   // Query per ottenere i task della dashboard

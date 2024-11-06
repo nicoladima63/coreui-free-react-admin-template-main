@@ -32,6 +32,7 @@ const Page404 = React.lazy(() => import('./views/pages/page404/Page404'));
 const Page500 = React.lazy(() => import('./views/pages/page500/Page500'));
 const WebSocketTest = React.lazy(() => import('./views/test/WebSocketTest'));
 const SendMessageToPC = React.lazy(() => import('./views/test/SendMessageToPC'));
+const TodoMessage = React.lazy(() => import('./views/todo/TodoMessages '));
 
 // Loading Spinner Component
 const LoadingSpinner = () => (
@@ -66,6 +67,7 @@ const AppRoutes = () => {
       <Route path="/500" element={<Page500 />} />
       <Route path="/test-websocket" element={<WebSocketTest />} />
       <Route path="/SendMessageToPC" element={<SendMessageToPC />} />
+      <Route path="/todo" element={<TodoMessage />} />
       {/* Rotta predefinita */}
       <Route path="*" element={<DefaultLayout />} />
     </Routes>

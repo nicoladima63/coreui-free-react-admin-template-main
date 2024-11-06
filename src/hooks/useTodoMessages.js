@@ -1,5 +1,6 @@
 // hooks/useTodoMessages.js
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import axios from 'axios';
 
 export const useTodoMessages = () => {

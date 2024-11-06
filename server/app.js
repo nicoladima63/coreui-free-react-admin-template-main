@@ -16,8 +16,8 @@ const stepRoutes = require('./routes/stepRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const stepTempRoutes = require('./routes/stepTempRoutes');
 const aggregateRoutes = require('./routes/aggregateRoutes');
-const messageRoutes = require('./routes/messageRoutes'); // Nuovo router per i messaggi
-//const todoMessageRoutes=require('./routes/todoMessageRoutes');
+//const messageRoutes = require('./routes/messageRoutes'); // Nuovo router per i messaggi
+const todoMessageRoutes=require('./routes/todoMessageRoutes');
 const app = express();
 const server = http.createServer(app);
 
@@ -39,8 +39,8 @@ app.use('/api/steps', stepRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/stepstemp', stepTempRoutes);
 app.use('/api/aggregate', aggregateRoutes);
-app.use('/api/messages', messageRoutes);
-//app.use('/api/todo', todoMessageRoutes);
+//app.use('/api/messages', messageRoutes);
+app.use('/api/todo', todoMessageRoutes);
 
 
 // Test route
