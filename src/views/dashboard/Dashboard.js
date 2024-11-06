@@ -34,8 +34,16 @@ const Dashboard = () => {
   const [modalAddVisible, setModalAddVisible] = useState(false);
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
   const currentUser = useSelector((state) => state.auth.user);
-  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+  //const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+
+
   const { isConnected } = useWebSocket();
+  const auth = useSelector(state => state.auth);
+  useEffect(() => {
+    console.log('Auth state:', auth);
+    console.log('LocalStorage user:', localStorage.getItem('user'));
+    console.log('LocalStorage token:', localStorage.getItem('token'));
+  }, [auth]);
 
   // Query per ottenere i task della dashboard
   const {
@@ -107,7 +115,6 @@ const Dashboard = () => {
           <CBadge color={isConnected ? 'success' : 'danger'}>
             {isConnected ? 'Connesso' : 'Disconnesso'}
           </CBadge>
-
         {/*  {currentUser && <MessagesSection userId={currentUser.id} />}*/}
         </div>
       </CCol>

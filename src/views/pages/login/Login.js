@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useDispatch } from 'react-redux';
+import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
@@ -23,12 +23,23 @@ import { cilLockLocked, cilUser } from '@coreui/icons';
 
 const Login = () => {
   const dispatch = useDispatch();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState(null);
   const navigate = useNavigate();
   const { connect } = useWebSocket();
   const { showSuccess, showError } = useToast();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
+
+  // Get auth state from Redux store
+  const auth = useSelector(state => state.auth);
+
+  useEffect(() => {
+    // Verifica che l'utente sia effettivamente autenticato con dati validi
+    if (auth.isAuthenticated && auth.user && Object.keys(auth.user).length > 0) {
+      navigate('/dashboard');
+    }
+  }, [auth.isAuthenticated, auth.user, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -40,42 +51,54 @@ const Login = () => {
         password,
       });
 
-      // Salva il token JWT nel localStorage
       const { accessToken, user } = response.data;
-      localStorage.setItem('token', accessToken);
 
-      // Configura axios per le future richieste
+      // Verifica più stringente dei dati ricevuti
+      if (!accessToken || !user || Object.keys(user).length === 0) {
+        throw new Error('Dati di autenticazione non validi dal server');
+      }
+
+      // Prima salviamo nel localStorage
+      try {
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('token', accessToken);
+      } catch (error) {
+        console.error('Errore nel salvataggio nel localStorage:', error);
+        throw new Error('Errore nel salvataggio dei dati di autenticazione');
+      }
+
+      // Configure axios defaults
       axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
 
-      // Dispatch dell'azione di login nel Redux store
+      // Dispatch login action to Redux store
       dispatch({
         type: 'LOGIN_SUCCESS',
-        user: user // Questo salverà l'utente sia nel Redux store che in localStorage
+        user: user,
+        token: accessToken
       });
 
-      // Connetti WebSocket
+      // Connect WebSocket
       try {
         await connect();
         showSuccess?.('Login effettuato con successo');
+        navigate('/dashboard');
       } catch (wsError) {
         console.error('WebSocket connection error:', wsError);
-        // Non bloccare il login se il WebSocket fallisce
       }
 
-      // Reindirizza alla dashboard
-      navigate('/dashboard');
     } catch (err) {
-      if (err.response && err.response.data) {
-        const errorMessage = err.response.data.error || 'Errore durante il login';
-        setError(errorMessage);
-        showError?.(errorMessage);
-      } else {
-        const errorMessage = 'Errore di rete. Riprova.';
-        setError(errorMessage);
-        showError?.(errorMessage);
-      }
+      // Pulizia in caso di errore
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+
+      const errorMessage = err.response?.data?.error || err.message || 'Errore durante il login';
+      setError(errorMessage);
+      showError?.(errorMessage);
+
+      dispatch({ type: 'LOGOUT' });
     }
   };
+
 
   return (
     <div className="bg-body-tertiary min-vh-100 d-flex flex-row align-items-center">
@@ -88,6 +111,7 @@ const Login = () => {
                   <CForm onSubmit={handleLogin}>
                     <h1>Accesso</h1>
                     <p className="text-body-secondary">Accedi con il tuo account</p>
+
                     <CInputGroup className="mb-3">
                       <CInputGroupText>@</CInputGroupText>
                       <CFormInput
@@ -100,6 +124,7 @@ const Login = () => {
                         required
                       />
                     </CInputGroup>
+
                     <CInputGroup className="mb-4">
                       <CInputGroupText>
                         <CIcon icon={cilLockLocked} />
@@ -114,6 +139,7 @@ const Login = () => {
                         autoComplete="current-password"
                       />
                     </CInputGroup>
+
                     <CRow>
                       {error && (
                         <CCol xs={12}>
@@ -134,6 +160,7 @@ const Login = () => {
                   </CForm>
                 </CCardBody>
               </CCard>
+
               <CCard className="text-white bg-primary py-5" style={{ width: '44%' }}>
                 <CCardBody className="text-center">
                   <div>
