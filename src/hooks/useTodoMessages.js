@@ -9,7 +9,7 @@ export const useTodoMessages = () => {
   // Query per i todo ricevuti
   const useReceivedTodos = () => {
     return useQuery('receivedTodos', async () => {
-      const { data } = await axios.get('/api/todo-messages/received');
+      const { data } = await axios.get('/api/todo/received');
       return data;
     });
   };
@@ -17,7 +17,7 @@ export const useTodoMessages = () => {
   // Query per i todo inviati
   const useSentTodos = () => {
     return useQuery('sentTodos', async () => {
-      const { data } = await axios.get('/api/todo-messages/sent');
+      const { data } = await axios.get('/api/todo/sent');
       return data;
     });
   };
@@ -26,7 +26,7 @@ export const useTodoMessages = () => {
   const useCreateTodo = () => {
     return useMutation(
       async (todoData) => {
-        const { data } = await axios.post('/api/todo-messages', todoData);
+        const { data } = await axios.post('/api/todo', todoData);
         return data;
       },
       {
@@ -41,7 +41,7 @@ export const useTodoMessages = () => {
   const useUpdateTodoStatus = () => {
     return useMutation(
       async ({ id, status }) => {
-        const { data } = await axios.patch(`/api/todo-messages/${id}/status`, { status });
+        const { data } = await axios.patch(`/api/todo/${id}/status`, { status });
         return data;
       },
       {
@@ -56,7 +56,7 @@ export const useTodoMessages = () => {
   const useMarkTodoAsRead = () => {
     return useMutation(
       async (id) => {
-        const { data } = await axios.patch(`/api/todo-messages/${id}/read`);
+        const { data } = await axios.patch(`/api/todo/${id}/read`);
         return data;
       },
       {
@@ -71,7 +71,7 @@ export const useTodoMessages = () => {
   const useDeleteTodo = () => {
     return useMutation(
       async (id) => {
-        await axios.delete(`/api/todo-messages/${id}`);
+        await axios.delete(`/api/todo/${id}`);
       },
       {
         onSuccess: () => {

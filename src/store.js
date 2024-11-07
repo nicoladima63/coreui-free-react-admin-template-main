@@ -111,13 +111,13 @@ const changeState = (state = initialState, { type, ...rest }) => {
 const store = createStore(changeState);
 
 // Debug helper
-store.subscribe(() => {
-  const state = store.getState();
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Redux State Updated:', state.auth);
-    console.log('LocalStorage user:', localStorage.getItem('user'));
-    console.log('LocalStorage token:', localStorage.getItem('token'));
-  }
-});
+//store.subscribe(() => {
+//  const state = store.getState();
+//  if (process.env.NODE_ENV === 'development') {
+//    console.log('Redux State Updated:', state.auth);
+//    console.log('LocalStorage user:', localStorage.getItem('user'));
+//    console.log('LocalStorage token:', localStorage.getItem('token'));
+//  }
+//});
 
 export default store;

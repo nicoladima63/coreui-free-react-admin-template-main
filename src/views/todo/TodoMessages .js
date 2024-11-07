@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useTodoMessages } from '../../hooks/useTodoMessages';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import {
   CCard,
@@ -17,23 +17,69 @@ import {
   CNav,
   CNavItem,
   CNavLink,
-  CBadge
+  CBadge,
+  CSpinner,
+  CAlert,
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
-import { cilPencil, cilCheck, cilX } from '@coreui/icons';
-import  NewTodoModal  from './TodoModal';
+import * as icon from '@coreui/icons';
+import NewTodoModal from './TodoModal';
+import { TodoService } from '../../services/api';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
+import { QUERY_KEYS } from '../../constants/queryKeys';
+import { API_ERROR_MESSAGES } from '../../constants/errorMessages';
+
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 
 const TodoMessages = () => {
   const [activeKey, setActiveKey] = useState(1);
-  const [showNewTodoModal, setShowNewTodoModal] = useState(false);
-  const { useReceivedTodos, useSentTodos, useUpdateTodoStatus } = useTodoMessages();
+  const queryClient = useQueryClient();
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
   const currentUser = useSelector(state => state.auth.user);
-  const { data: receivedTodos, isLoading: loadingReceived } = useReceivedTodos();
-  const { data: sentTodos, isLoading: loadingSent } = useSentTodos();
-  const updateTodoStatus = useUpdateTodoStatus();
+
+
+  //const { useReceivedTodos, useSentTodos, useUpdateTodoStatus } = useTodoMessages();
+  //const { data: receivedTodos, isLoading: loadingReceived } = useReceivedTodos();
+  //const { data: sentTodos, isLoading: loadingSent } = useSentTodos();
+  //const updateTodoStatus = useUpdateTodoStatus();
+
+
+  const {
+    data: sentTodos = [],
+    isLoading: loadingSent,
+    error: sentError,
+  } = useQuery({
+    queryKey: [QUERY_KEYS.TODOS],
+    queryFn: TodoService.getTodosSent,
+  });
+
+  const {
+    data: receivedTodos = [],
+    isLoading: loadingReceived,
+    error: receivedError,
+  } = useQuery({
+    queryKey: [QUERY_KEYS.TODOS,currentUser.id],
+    queryFn: TodoService.getTodosReceived,
+    enabled: !!currentUser
+  });
+
+
+  // Mutation per aggiornare un record
+  const updateMutation = useMutation({
+    mutationFn: TodoService.updateTodoStatus,
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.TODOS]);
+      setIsModalVisible(false); // Chiudi il modale dopo l'aggiornamento
+    },
+    onError: (error) => {
+      console.error('Errore durante l\'aggiornamento del record:', error);
+    },
+  });
+
 
   const getStatusBadge = (status) => {
     const statusColors = {
@@ -52,11 +98,30 @@ const TodoMessages = () => {
 
   const handleStatusUpdate = async (todoId, newStatus) => {
     try {
-      await updateTodoStatus.mutateAsync({ id: todoId, status: newStatus });
+      await updateMutation.mutateAsync({ id: todoId, status: newStatus });
     } catch (error) {
       console.error('Error updating todo status:', error);
     }
   };
+
+  const renderError = (error) => (
+    <CAlert color="danger" className="text-center">
+      {error?.message || API_ERROR_MESSAGES.GENERIC_ERROR}
+    </CAlert>
+  );
+
+  const renderLoading = () => (
+    <div className="text-center">
+      <CSpinner color="primary" />
+    </div>
+  );
+
+  const renderEmptyState = () => (
+    <CAlert color="warning" className="text-center">
+      Nessuna record disponibile.
+    </CAlert>
+  );
+
 
   const renderTodoTable = (todos) => (
     <CTable hover responsive>
@@ -124,12 +189,13 @@ const TodoMessages = () => {
             <CCardHeader>
               <CRow className="align-items-center">
                 <CCol>
+                  { currentUser.id}
                   <strong>Todo Messages</strong>
                 </CCol>
                 <CCol xs="auto">
                   <CButton
                     color="primary"
-                    onClick={() => setShowNewTodoModal(true)}
+                    onClick={() => setIsModalVisible(true)}
                   >
                     Nuovo Messaggio
                   </CButton>
@@ -137,6 +203,7 @@ const TodoMessages = () => {
               </CRow>
             </CCardHeader>
             <CCardBody>
+
               <CNav variant="tabs" role="tablist">
                 <CNavItem>
                   <CNavLink
@@ -159,13 +226,17 @@ const TodoMessages = () => {
               <div className="tab-content pt-4">
                 {activeKey === 1 ? (
                   loadingReceived ? (
-                    <div>Caricamento...</div>
+                    renderLoading()
+                  ) : receivedError ? (
+                      renderError(receivedError)
                   ) : (
                     renderTodoTable(receivedTodos)
                   )
                 ) : (
                   loadingSent ? (
-                    <div>Caricamento...</div>
+                    renderLoading()
+                  ) : sentError ? (
+                        renderError(sentError)
                   ) : (
                     renderTodoTable(sentTodos)
                   )
@@ -175,11 +246,12 @@ const TodoMessages = () => {
           </CCard>
         </CCol>
       </CRow>
-
-      <NewTodoModal
-        visible={showNewTodoModal}
-        onClose={() => setShowNewTodoModal(false)}
-      />
+      {isModalVisible && (
+        <NewTodoModal
+          visible={isModalVisible}
+          onClose={() => setIsModalVisible(false)}
+        />
+      )}
     </>
   );
 };

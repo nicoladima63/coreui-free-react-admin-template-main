@@ -18,10 +18,26 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor per gestire gli errori
 apiClient.interceptors.response.use(
   (response) => response.data,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        const newToken = await refreshAuthToken(refreshToken); // Implementare questa funzione
+        localStorage.setItem('token', newToken);
+        apiClient.defaults.headers.Authorization = `Bearer ${newToken}`;
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
     const customError = new Error(
       error.response?.data?.message || 'Si è verificato un errore'
     );
@@ -30,6 +46,28 @@ apiClient.interceptors.response.use(
     throw customError;
   }
 );
+
+// Funzione per gestire il refresh del token (da implementare lato backend)
+async function refreshAuthToken(refreshToken) {
+  const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+    refreshToken,
+  });
+  return response.data.token;
+}
+
+
+// Interceptor per gestire gli errori
+//apiClient.interceptors.response.use(
+//  (response) => response.data,
+//  (error) => {
+//    const customError = new Error(
+//      error.response?.data?.message || 'Si è verificato un errore'
+//    );
+//    customError.code = error.response?.status;
+//    customError.data = error.response?.data;
+//    throw customError;
+//  }
+//);
 
 // Servizio per gestire i tasks
 export const TasksService = {
@@ -111,7 +149,16 @@ export const PCService = {
 export const MessageService = {
   getMessages: (userId) => apiClient.get(`/messages`),
   getMessagesForUser: (userId) => apiClient.get(`/messages/${userId}`),
+  markAsRead: (messageId) => apiClient.patch(`/messages/${messageId}/read`),
+};
 
-  markAsRead: (messageId) => apiClient.put(`/messages/${messageId}/read`),
-
+export const TodoService = {
+  getTodos: () => apiClient.get('/todos'),
+  getTodosSent: () => apiClient.get('/todos/sent'),
+  getTodosReceived: () => apiClient.get('/todos/received'),
+  getTodo: (id) => apiClient.get(`/todos/${id}`),
+  createTodo: (data) => apiClient.post('/todos', data),
+  updateTodo: (id, data) => apiClient.put(`/todos/${id}`, data),
+  deleteTodo: (id) => apiClient.delete(`/todos/${id}`),
+  markAsRead: (id) => apiClient.patch(`/todos/${id}/read`),
 };

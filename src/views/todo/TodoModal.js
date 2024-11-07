@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   CModal,
   CModalHeader,
@@ -12,12 +13,16 @@ import {
   CFormTextarea,
   CFormLabel
 } from '@coreui/react';
-import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-import { useTodoMessages } from '../../hooks/useTodoMessages';
+import { TodoService,UsersService } from '../../services/api';
+
 import { useToast } from '../../hooks/useToast';
+import { QUERY_KEYS } from '../../constants/queryKeys';
+import { API_ERROR_MESSAGES } from '../../constants/errorMessages';
 
 const NewTodoModal = ({ visible, onClose }) => {
+  const queryClient = useQueryClient();
+
+
   const [formData, setFormData] = useState({
     recipientId: '',
     subject: '',
@@ -26,20 +31,35 @@ const NewTodoModal = ({ visible, onClose }) => {
     dueDate: ''
   });
 
-  const { useCreateTodo } = useTodoMessages();
-  const createTodo = useCreateTodo();
   const { showSuccess, showError } = useToast();
 
-  // Query per ottenere la lista degli utenti
-  const { data: users } = useQuery('users', async () => {
-    const { data } = await axios.get('/api/users');
-    return data;
+  const {
+    data: users = [],
+    isLoading: isLoading,
+    error: error,
+  } = useQuery({
+    queryKey: [QUERY_KEYS.USERS],
+    queryFn: UsersService.getUsers
   });
+
+
+  // Mutation per creare un nuovo record
+  const createMutation = useMutation({
+    mutationFn: TodoService.createTodo,
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.TODOS]);
+      setIsModalVisible(false); // Chiudi il modale alla creazione
+    },
+    onError: (error) => {
+      console.error('Errore durante la creazione del record:', error);
+    },
+  });
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await createTodo.mutateAsync(formData);
+      await createMutation.mutateAsync(formData);
       showSuccess('Messaggio inviato con successo');
       onClose();
       setFormData({

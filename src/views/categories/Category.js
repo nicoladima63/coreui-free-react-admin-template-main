@@ -150,8 +150,8 @@ const CategoriesView = () => {
             {isLoading ? (
               renderLoading()
             ) : error ? (
-                renderError(error)
-              ) : categories.length === 0 ? (
+              renderError(error)
+            ) : categories.length === 0 ? (
               renderEmptyState()
             ) : (
               <CTable>

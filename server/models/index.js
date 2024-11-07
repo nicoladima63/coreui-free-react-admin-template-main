@@ -4,7 +4,7 @@ const { DataTypes } = require('sequelize');
 // Definizione dei modelli
 const User = require('./User');
 const Message = require('./Message');
-
+const TodoMessage = require('./TodoMessage');
 // Definisci le relazioni
 User.hasMany(Message, {
   as: 'sentMessages',
@@ -30,5 +30,6 @@ Message.belongsTo(User, {
 module.exports = {
   sequelize, // Esportiamo sequelize per altri usi
   User,
-  Message
+  Message,
+  TodoMessage
 };

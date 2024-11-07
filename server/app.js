@@ -40,7 +40,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/stepstemp', stepTempRoutes);
 app.use('/api/aggregate', aggregateRoutes);
 //app.use('/api/messages', messageRoutes);
-app.use('/api/todo', todoMessageRoutes);
+app.use('/api/todos', todoMessageRoutes);
 
 
 // Test route

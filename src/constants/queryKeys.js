@@ -8,5 +8,6 @@ export const QUERY_KEYS = {
   PROVIDERS: 'providers',
   CATEGORIES: 'categories',
   MESSAGES: 'messages',
+  TODOS: 'TodoMessages',
   PCS: 'pcs',
 };

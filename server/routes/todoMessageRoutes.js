@@ -4,6 +4,19 @@ const router = express.Router();
 const { TodoMessage, User } = require('../models');
 const { authenticate } = require('../middleware/authMiddleware');
 
+
+router.get('/', async (req, res) => {
+  try {
+    const todos = await TodoMessage.findAll();
+    res.json(todos);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: 'Errore nel recupero dei todo' });
+  }
+});
+
+
+
 // Create a new todo message
 router.post('/', authenticate, async (req, res) => {
   try {
@@ -27,7 +40,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // Get todos for the current user (received)
-router.get('/received', authenticate, async (req, res) => {
+router.get('/received',  async (req, res) => {
   try {
     const todos = await TodoMessage.findAll({
       where: { recipientId: req.user.id },
@@ -43,7 +56,7 @@ router.get('/received', authenticate, async (req, res) => {
 });
 
 // Get todos sent by the current user
-router.get('/sent', authenticate, async (req, res) => {
+router.get('/sent',  async (req, res) => {
   try {
     const todos = await TodoMessage.findAll({
       where: { senderId: req.user.id },

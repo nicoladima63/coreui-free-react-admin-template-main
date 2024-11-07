@@ -44,7 +44,6 @@ const Dashboard = () => {
     console.log('LocalStorage user:', localStorage.getItem('user'));
     console.log('LocalStorage token:', localStorage.getItem('token'));
     setUser(localStorage.getItem('user'))
-
   }, [auth]);
 
   // Query per ottenere i task della dashboard
