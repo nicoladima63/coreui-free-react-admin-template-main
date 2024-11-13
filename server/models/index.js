@@ -26,6 +26,16 @@ Message.belongsTo(User, {
   foreignKey: 'toId'
 });
 
+TodoMessage.belongsTo(User, {
+  as: 'sender',
+  foreignKey: 'senderId'
+});
+
+TodoMessage.belongsTo(User, {
+  as: 'recipient',
+  foreignKey: 'recipientId'
+});
+
 // Esporta i modelli e sequelize
 module.exports = {
   sequelize, // Esportiamo sequelize per altri usi

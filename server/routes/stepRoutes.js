@@ -61,6 +61,50 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+router.patch('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { completed } = req.body;
+
+  try {
+    // Trova lo step con le relazioni necessarie
+    const step = await Step.findByPk(id, {
+      include: [
+        {
+          model: Task,
+          as: 'task'
+        },
+        {
+          model: User,
+          as: 'user'
+        }
+      ]
+    });
+
+    if (!step) {
+      return res.status(404).json({ error: 'Step non trovato' });
+    }
+
+    // Aggiorna lo stato completed
+    await step.update({ completed });
+
+    // Se lo step è stato completato, gestisci le notifiche
+    if (completed) {
+      try {
+        await WebSocketManager.handleStepCompletion(step, step.taskid);
+      } catch (notificationError) {
+        console.error('Errore nell\'invio della notifica:', notificationError);
+        // Continuiamo anche se la notifica fallisce
+      }
+    }
+
+    res.json(step);
+  } catch (error) {
+    console.error('Errore durante l\'aggiornamento dello step:', error);
+    res.status(500).json({ error: 'Errore durante l\'aggiornamento dello step' });
+  }
+});
+
+
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 

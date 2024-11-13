@@ -29,12 +29,12 @@ export const WebSocketProvider = ({ children }) => {
   useEffect(() => {
     const handleConnect = () => {
       setIsConnected(true);
-      showSuccess('Connesso al server messaggi');
+      //showSuccess('Connesso al server messaggi');
     };
 
     const handleDisconnect = () => {
       setIsConnected(false);
-      showError('Disconnesso dal server messaggi');
+      //showError('Disconnesso dal server messaggi');
     };
 
     const handleError = (error) => {
@@ -80,6 +80,26 @@ export const WebSocketProvider = ({ children }) => {
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [connectWebSocket]);
+
+  useEffect(() => {
+    const handleStepNotification = (notification) => {
+      // Usando il hook useToast per mostrare la notifica
+      showSuccess(notification.message, {
+        onClick: () => {
+          // Opzionalmente, puoi navigare alla pagina del task
+          navigate(`/tasks/${notification.taskId}`);
+        }
+      });
+    };
+
+    // Aggiungi handler per le notifiche degli step
+    websocketService.addHandler('stepNotification', handleStepNotification);
+
+    return () => {
+      // Rimuovi handler quando il componente viene smontato
+      websocketService.removeHandler('stepNotification', handleStepNotification);
+    };
+  }, [showSuccess, navigate]);
 
   const value = {
     isConnected,

@@ -10,11 +10,13 @@ import {
   CSpinner,
 } from '@coreui/react';
 import { websocketService } from '../../services/websocket';
-import { UsersService, TodoService } from '../../services/api';
+import { MessageService, UsersService, TodoService } from '../../services/api';
+import { ChatMessage } from '../../components/messaging/ChatMessage';
+import { ChatInput } from '../../components/messaging/ChatInput';
 import { useToast } from '../../hooks/useToast';
 import { QUERY_KEYS } from '../../constants/queryKeys';
 
-const TodoView = () => {
+const MessagingView = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const queryClient = useQueryClient();
@@ -24,6 +26,13 @@ const TodoView = () => {
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: [QUERY_KEYS.USERS],
     queryFn: UsersService.getUsers,
+  });
+
+  // Query per i messaggi
+  const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
+    queryKey: [QUERY_KEYS.MESSAGES, selectedUser?.id],
+    queryFn: () => MessageService.getMessages(selectedUser?.id),
+    enabled: !!selectedUser,
   });
 
   // Query per i todos
@@ -41,12 +50,19 @@ const TodoView = () => {
 
     websocketService.addHandler('connect', () => {
       setIsConnected(true);
-      showSuccess('Connesso al server');
+      showSuccess('Connesso al server messaggi');
     });
 
     websocketService.addHandler('disconnect', () => {
       setIsConnected(false);
-      showError('Disconnesso dal server');
+      showError('Disconnesso dal server messaggi');
+    });
+
+    websocketService.addHandler('chat', (message) => {
+      queryClient.invalidateQueries([QUERY_KEYS.MESSAGES]);
+      if (message.fromId !== selectedUser?.id) {
+        showSuccess(`Nuovo messaggio da ${message.sender.name}`);
+      }
     });
 
     // Aggiungi handler per le notifiche dei todos
@@ -61,6 +77,18 @@ const TodoView = () => {
       websocketService.disconnect();
     };
   }, [queryClient, selectedUser, showSuccess, showError]);
+
+  const handleSendMessage = async (content) => {
+    if (!selectedUser || !content.trim() || !isConnected) {
+      return;
+    }
+
+    try {
+      websocketService.sendMessage(selectedUser.id, content);
+    } catch (error) {
+      showError('Errore nell\'invio del messaggio');
+    }
+  };
 
   // Funzione per renderizzare i todos
   const renderTodos = () => {
@@ -94,7 +122,7 @@ const TodoView = () => {
         <CCard className="mb-4">
           <CCardHeader>
             <div className="d-flex justify-content-between align-items-center">
-              <h4 className="mb-0">Todos</h4>
+              <h4 className="mb-0">Messaggi</h4>
               <CBadge color={isConnected ? 'success' : 'danger'}>
                 {isConnected ? 'Connesso' : 'Disconnesso'}
               </CBadge>
@@ -125,14 +153,45 @@ const TodoView = () => {
               <CCol md={8}>
                 {selectedUser ? (
                   <>
-                    <div className="todos-section">
-                      <h5>Todos per {selectedUser.name}</h5>
+                    <div className="chat-header mb-3">
+                      Chat con {selectedUser.name} ({selectedUser.pc_id})
+                    </div>
+                    <div
+                      className="chat-messages border rounded p-3 mb-3"
+                      style={{ height: '400px', overflowY: 'auto' }}
+                    >
+                      {isLoadingMessages ? (
+                        <div className="text-center">
+                          <CSpinner />
+                        </div>
+                      ) : messages.length === 0 ? (
+                        <div className="text-center text-muted">
+                          Nessun messaggio
+                        </div>
+                      ) : (
+                        messages.map(message => (
+                          <ChatMessage
+                            key={message.id}
+                            message={message}
+                            currentUserId={selectedUser.id}
+                          />
+                        ))
+                      )}
+                    </div>
+                    <ChatInput
+                      onSendMessage={handleSendMessage}
+                      disabled={!isConnected}
+                    />
+
+                    {/* Sezione Todos */}
+                    <div className="todos-section mt-4">
+                      <h5>Todos</h5>
                       {renderTodos()}
                     </div>
                   </>
                 ) : (
                   <div className="text-center text-muted">
-                    Seleziona un utente per visualizzare i todos
+                    Seleziona un utente per iniziare una chat
                   </div>
                 )}
               </CCol>
@@ -144,4 +203,4 @@ const TodoView = () => {
   );
 };
 
-export default TodoView;
+export default MessagingView;

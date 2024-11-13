@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import {
@@ -39,14 +39,22 @@ const TodoMessages = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
-  const currentUser = useSelector(state => state.auth.user);
+  //const currentUser = useSelector(state => state.auth.user);
 
+  const auth = useSelector(state => state.auth);
+  const [currentUser, setCurrentUser] = useState({});
+  useEffect(() => {
+    //console.log('Auth state:', auth);
+    //console.log('LocalStorage user:', localStorage.getItem('user'));
+    //console.log('LocalStorage token:', localStorage.getItem('token'));
+    setCurrentUser(auth.user);
+
+  }, [auth]);
 
   //const { useReceivedTodos, useSentTodos, useUpdateTodoStatus } = useTodoMessages();
   //const { data: receivedTodos, isLoading: loadingReceived } = useReceivedTodos();
   //const { data: sentTodos, isLoading: loadingSent } = useSentTodos();
   //const updateTodoStatus = useUpdateTodoStatus();
-
 
   const {
     data: sentTodos = [],
@@ -162,7 +170,7 @@ const TodoMessages = () => {
                     onClick={() => handleStatusUpdate(todo.id, 'in_progress')}
                     title="Inizia"
                   >
-                    <CIcon icon={cilPencil} size="sm" />
+                    <CIcon icon={icon.cilPencil} size="sm" />
                   </CButton>
                   <CButton
                     color="success"
@@ -170,7 +178,7 @@ const TodoMessages = () => {
                     onClick={() => handleStatusUpdate(todo.id, 'completed')}
                     title="Completa"
                   >
-                    <CIcon icon={cilCheck} size="sm" />
+                    <CIcon icon={icon.cilCheck} size="sm" />
                   </CButton>
                 </>
               )}
@@ -250,6 +258,7 @@ const TodoMessages = () => {
         <NewTodoModal
           visible={isModalVisible}
           onClose={() => setIsModalVisible(false)}
+          senderId={currentUser.id}
         />
       )}
     </>

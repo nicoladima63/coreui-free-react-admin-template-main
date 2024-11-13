@@ -30,20 +30,21 @@ import { API_ERROR_MESSAGES } from '../../constants/errorMessages';
 
 const Dashboard = () => {
   const queryClient = useQueryClient();
+  const auth = useSelector(state => state.auth);
+
   const [selectedFilter, setSelectedFilter] = useState('incomplete');
   const [modalAddVisible, setModalAddVisible] = useState(false);
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
-  const currentUser = useSelector((state) => state.auth.user);
-  //const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
-  const [user, setUser] = useState({});
-
   const { isConnected } = useWebSocket();
-  const auth = useSelector(state => state.auth);
+  const [currentUser, setCurrentUser] = useState({});
+  const [isAutehenticated, setIsAuthenticated] = useState(false);
+
   useEffect(() => {
-    console.log('Auth state:', auth);
-    console.log('LocalStorage user:', localStorage.getItem('user'));
-    console.log('LocalStorage token:', localStorage.getItem('token'));
-    setUser(localStorage.getItem('user'))
+    //console.log('Auth state:', auth);
+    //console.log('LocalStorage user:', localStorage.getItem('user'));
+    //console.log('LocalStorage token:', localStorage.getItem('token'));
+    setCurrentUser(auth.user);
+    setIsAuthenticated(auth.isAuthenticated);
   }, [auth]);
 
   // Query per ottenere i task della dashboard
@@ -112,12 +113,17 @@ const Dashboard = () => {
   return (
     <CRow>
       <CCol xs={12} xl={2}>
-        <div>
-          <CBadge color={isConnected ? 'success' : 'danger'}>
-            {isConnected ? 'Connesso' : 'Disconnesso'}
-          </CBadge>
-        {/*  {currentUser && <MessagesSection userId={currentUser.id} />}*/}
-        </div>
+        <CCard className="mb-4">
+          <CCardHeader>
+            <h4 className="mb-0">
+              <CBadge color={isConnected ? 'success' : 'danger'}> </CBadge>
+                Benvenuto {auth.user.name}</h4>
+          </CCardHeader>
+          <CCardBody>
+            <p>Queste le cose da fare.</p>
+              {currentUser && <MessagesSection userId={auth.user.id} />}
+          </CCardBody>
+        </CCard>
       </CCol>
 
       <CCol xs={12} lg={10}>

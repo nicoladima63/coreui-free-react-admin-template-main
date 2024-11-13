@@ -3,7 +3,7 @@ import { CButtonGroup, CButton } from '@coreui/react'
 
 const FilterGroupButton = ({ selectedFilter, onFilterChange, onReload }) => {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', margin: '10px 0' }}>
+    //<div style={{ display: 'flex', justifyContent: 'space-between', margin: '10px 0' }}>
       <CButtonGroup>
         <CButton
           size="sm"
@@ -30,7 +30,7 @@ const FilterGroupButton = ({ selectedFilter, onFilterChange, onReload }) => {
         </CButton>
 
       </CButtonGroup>
-    </div>
+  //  </div>
   )
 }
 

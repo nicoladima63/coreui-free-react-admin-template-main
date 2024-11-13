@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { TodoMessage, User } = require('../models');
 const { authenticate } = require('../middleware/authMiddleware');
-
+const WebSocketManager = require('../websocket/WebSocketManager');
 
 router.get('/', async (req, res) => {
   try {
@@ -21,27 +21,63 @@ router.get('/', async (req, res) => {
 router.post('/', authenticate, async (req, res) => {
   try {
     const { recipientId, subject, message, priority, dueDate } = req.body;
+
+    // Validazione dei dati in ingresso
+    if (!recipientId || !subject || !message) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        required: ['recipientId', 'subject', 'message']
+      });
+    }
+
+    // Converti recipientId in numero se è una stringa
+    const numericRecipientId = parseInt(recipientId, 10);
+
     const todoMessage = await TodoMessage.create({
       senderId: req.user.id,
-      recipientId,
+      recipientId: numericRecipientId,
       subject,
       message,
       priority,
-      dueDate
+      dueDate,
+      status: 'pending'
     });
 
-    // Qui potresti emettere un evento WebSocket per la notifica in tempo reale
-    req.io.to(`user_${recipientId}`).emit('new_todo', todoMessage);
+    // Invia notifica tramite WebSocket
+    WebSocketManager.sendNotification(numericRecipientId, {
+      action: 'new_todo',
+      data: {
+        id: todoMessage.id,
+        subject: todoMessage.subject,
+        senderId: req.user.id,
+        senderName: req.user.name,
+        timestamp: new Date()
+      }
+    });
 
     res.status(201).json(todoMessage);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Error creating todo:', error);
+    res.status(400).json({
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
-// Get todos for the current user (received)
-router.get('/received',  async (req, res) => {
+router.get('/received', authenticate, async (req, res) => {
   try {
+    // Log della richiesta
+    console.log('Headers:', req.headers);
+    console.log('User:', req.user);
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        details: 'No user found in request'
+      });
+    }
+
     const todos = await TodoMessage.findAll({
       where: { recipientId: req.user.id },
       include: [
@@ -51,13 +87,22 @@ router.get('/received',  async (req, res) => {
     });
     res.json(todos);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Error in /received:', error);
+    res.status(500).json({
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
-// Get todos sent by the current user
-router.get('/sent',  async (req, res) => {
+
+router.get('/sent', authenticate, async (req, res) => {
   try {
+    // Check if user exists in the request
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
     const todos = await TodoMessage.findAll({
       where: { senderId: req.user.id },
       include: [
@@ -67,7 +112,8 @@ router.get('/sent',  async (req, res) => {
     });
     res.json(todos);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Error in /sent:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

@@ -108,7 +108,6 @@ const WorksView = () => {
     } else {
       await createWorkMutation.mutateAsync(workData); // Creazione nuova
     }
-    // Non è necessario ricaricare i dati manualmente, poiché invalidateQueries gestisce il refresh
   };
 
 
@@ -175,7 +174,6 @@ const WorksView = () => {
     } else {
       await createStepMutation.mutateAsync(stepData); // Creazione nuova
     }
-    // Non è necessario ricaricare i dati manualmente, poiché invalidateQueries gestisce il refresh
   };
 
 

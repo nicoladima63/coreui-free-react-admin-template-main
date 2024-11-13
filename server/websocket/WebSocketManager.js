@@ -160,6 +160,66 @@ class WebSocketManager {
     console.log(`User ${userId} disconnected`);
   }
 
+  async handleStepCompletion(completedStep, taskId) {
+    try {
+      const steps = await db.Step.findAll({
+        where: { taskId },
+        include: [
+          {
+            model: db.User,
+            as: 'user',
+            attributes: ['id', 'name', 'pc_id']
+          },
+          {
+            model: db.Task,
+            as: 'task',
+            attributes: ['id', 'patient']
+          }
+        ],
+        order: [['order', 'ASC']]
+      });
+
+      const currentStepIndex = steps.findIndex(step => step.id === completedStep.id);
+      const nextStep = steps[currentStepIndex + 1];
+
+      if (nextStep && nextStep.user.id !== completedStep.userid) {
+        // Crea un TodoMessage
+        const todoMessage = await db.TodoMessage.create({
+          senderId: completedStep.userid,
+          recipientId: nextStep.user.id,
+          type: 'step_notification',
+          subject: `Nuova fase da completare: ${nextStep.name}`,
+          message: `La fase "${completedStep.name}" è stata completata per il paziente ${completedStep.task.patient}. La fase "${nextStep.name}" è pronta per essere lavorata.`,
+          priority: 'high',
+          status: 'pending',
+          relatedTaskId: taskId,
+          relatedStepId: nextStep.id,
+          dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000) // Scadenza a 24 ore
+        });
+
+        // Invia notifica WebSocket
+        const notification = {
+          type: 'stepNotification',
+          todoMessageId: todoMessage.id,
+          title: todoMessage.subject,
+          message: todoMessage.message,
+          priority: todoMessage.priority,
+          taskId,
+          stepId: nextStep.id,
+          timestamp: new Date()
+        };
+
+        this.sendNotification(nextStep.user.id, notification);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Errore durante la gestione del completamento dello step:', error);
+      return false;
+    }
+  }
+
   broadcastUserStatus(userId, online) {
     const message = JSON.stringify({
       type: 'userStatus',

@@ -19,11 +19,11 @@ import { useToast } from '../../hooks/useToast';
 import { QUERY_KEYS } from '../../constants/queryKeys';
 import { API_ERROR_MESSAGES } from '../../constants/errorMessages';
 
-const NewTodoModal = ({ visible, onClose }) => {
+const NewTodoModal = ({ visible, onClose,senderId }) => {
   const queryClient = useQueryClient();
 
-
   const [formData, setFormData] = useState({
+    senderId: senderId,
     recipientId: '',
     subject: '',
     message: '',
@@ -48,7 +48,7 @@ const NewTodoModal = ({ visible, onClose }) => {
     mutationFn: TodoService.createTodo,
     onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.TODOS]);
-      setIsModalVisible(false); // Chiudi il modale alla creazione
+      onClose();
     },
     onError: (error) => {
       console.error('Errore durante la creazione del record:', error);
@@ -63,6 +63,7 @@ const NewTodoModal = ({ visible, onClose }) => {
       showSuccess('Messaggio inviato con successo');
       onClose();
       setFormData({
+        senderId: '',
         recipientId: '',
         subject: '',
         message: '',

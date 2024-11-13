@@ -32,7 +32,7 @@ const Page404 = React.lazy(() => import('./views/pages/page404/Page404'));
 const Page500 = React.lazy(() => import('./views/pages/page500/Page500'));
 const WebSocketTest = React.lazy(() => import('./views/test/WebSocketTest'));
 const SendMessageToPC = React.lazy(() => import('./views/test/SendMessageToPC'));
-const TodoMessage = React.lazy(() => import('./views/todo/TodoMessages '));
+const TodoMessage = React.lazy(() => import('./views/todo/TodoMessages'));
 
 // Loading Spinner Component
 const LoadingSpinner = () => (

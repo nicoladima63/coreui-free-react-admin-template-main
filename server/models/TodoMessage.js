@@ -55,18 +55,35 @@ const TodoMessage = sequelize.define('TodoMessage', {
   status: {
     type: DataTypes.ENUM('pending', 'read', 'in_progress', 'completed'),
     defaultValue: 'pending'
+  },
+  type: {
+    type: DataTypes.ENUM('general', 'step_notification'),
+    defaultValue: 'general'
+  },
+  relatedTaskId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Tasks',
+      key: 'id'
+    }
+  },
+  relatedStepId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Steps',
+      key: 'id'
+    }
   }
 });
 
 TodoMessage.associate = (models) => {
-  TodoMessage.belongsTo(models.User, {
-    as: 'sender',
-    foreignKey: 'senderId'
-  });
-  TodoMessage.belongsTo(models.User, {
-    as: 'recipient',
-    foreignKey: 'recipientId'
-  });
+  TodoMessage.belongsTo(models.User, { as: 'sender', foreignKey: 'senderId' });
+  TodoMessage.belongsTo(models.User, { as: 'recipient', foreignKey: 'recipientId' });
+
+  TodoMessage.belongsTo(models.Task, { as: 'relatedTask', foreignKey: 'relatedTaskId' });
+  TodoMessage.belongsTo(models.Step, { as: 'relatedStep', foreignKey: 'relatedStepId' });
 };
 
 const syncDatabase = async () => {

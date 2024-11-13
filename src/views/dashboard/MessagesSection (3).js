@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import {
   CCard,
   CCardHeader,
@@ -20,9 +19,8 @@ import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { QUERY_KEYS } from '../../constants/queryKeys';
 
 
-const MessagesSection = ({ userId }) => {
+const TodoView = () => {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
 
   const [selectedUser, setSelectedUser] = useState(null);
@@ -30,7 +28,7 @@ const MessagesSection = ({ userId }) => {
   const { showSuccess, showError } = useToast();
 
   // Query per gli utenti
-  const { data: users = [], isLoading, error } = useQuery({
+  const { data: users = [], isLoading,error } = useQuery({
     queryKey: [QUERY_KEYS.USERS],
     queryFn: UsersService.getUsers,
   });
@@ -64,30 +62,6 @@ const MessagesSection = ({ userId }) => {
       } catch (error) {
         console.error('Errore durante l\'aggiornamento del messaggio:', error);
       }
-    }
-  };
-
-  const handleMessageClick = async (message) => {
-    // Se è una notifica di step e non è ancora letta
-    if (message.type === 'step_notification' && !message.read) {
-      const confirmed = await showConfirmDialog({
-        title: 'Notifica step',
-        message: 'Vuoi andare alla pagina del task?',
-        confirmText: 'Vai al task',
-        cancelText: 'Solo segna come letto'
-      });
-
-      if (confirmed) {
-        // Segna come letto e naviga al task
-        await markAsReadMutation.mutateAsync(message.id);
-        navigate(`/tasks/${message.relatedTaskId}`);
-      } else {
-        // Solo segna come letto
-        await markAsReadMutation.mutateAsync(message.id);
-      }
-    } else {
-      // Gestione normale per altri tipi di messaggi
-      handleMarkAsRead(message);
     }
   };
 
@@ -164,18 +138,15 @@ const MessagesSection = ({ userId }) => {
   };
 
   return (
-    <CCard className="mb-4">
-      <CCardHeader>
-        <div className="d-flex justify-content-between align-items-center">
-          <h4 className="mb-0">Messaggi</h4>
-          {todos.filter(m => !m.read).length > 0 && (
-            <CBadge color="danger" shape="rounded-pill">
-              {todos.filter(m => !m.read).length} non letti
-            </CBadge>
-          )}
-        </div>
-      </CCardHeader>
-      <CCardBody>
+    <>
+      <div className="d-flex justify-content-between align-items-center">
+        <p className="mb-0">Messaggi</p>
+        {todos.filter(m => !m.read).length > 0 && (
+          <CBadge color="danger" shape="rounded-pill">
+            {todos.filter(m => !m.read).length} non letti
+          </CBadge>
+        )}
+      </div>
         {isLoadingTodo ? (
           renderLoading()
         ) : errorTodo ? (
@@ -184,54 +155,35 @@ const MessagesSection = ({ userId }) => {
           renderEmptyState()
         ) : (
           <CListGroup>
-                  {todos.map((message) => (
+            {todos.map((message) => (
               <CListGroupItem
                 key={message.id}
-                className={`d-flex justify-content-between align-items-center ${!message.read ? 'bg-light' : ''
-                  }`}
-                onClick={() => handleMessageClick(message)}
+                className={`d-flex justify-content-between align-items-center'}`}
+                onClick={() => handleMarkAsRead(message)}
                 style={{ cursor: !message.read ? 'pointer' : 'default' }}
               >
                 <div>
                   <div className="d-flex align-items-center">
-                    <strong className="me-2">
-                      {message.type === 'step_notification' ? 'Notifica Step' : `Da: ${message.from.name}`}
-                    </strong>
-                    {!message.read && (
-                      <CBadge
-                        color={message.type === 'step_notification' ? 'info' : 'danger'}
-                        shape="rounded-pill"
-                      >
-                        Nuovo
-                      </CBadge>
+                    <strong className="me-2">Da: {message.senderId}</strong>
+                    {!message.readAt && (
+                      <CBadge color="danger" shape="rounded-pill">Nuovo</CBadge>
                     )}
                   </div>
                   <div className="text-muted small">
                     {new Date(message.createdAt).toLocaleString('it-IT')}
                   </div>
-                  <div className="mt-1">
-                    {message.content}
-                    {message.type === 'step_notification' && message.priority === 'high' && (
-                      <CBadge color="warning" className="ms-2">
-                        Alta Priorità
-                      </CBadge>
-                    )}
-                  </div>
+                  <div className="mt-1">{message.subject}</div>
                 </div>
-                {!message.read && (
-                  <CIcon
-                    icon={message.type === 'step_notification' ? icon.cilBell : icon.cilEnvelopeClosed}
-                    className="ms-2"
-                  />
+                {!message.readAt && (
+                  <CIcon icon={icon.cilEnvelopeClosed} className="ms-2" />
                 )}
               </CListGroupItem>
             ))}
           </CListGroup>
-
         )}
-      </CCardBody>
       <ConfirmDialog />
-    </CCard>);
+    </>
+  );
 };
 
-export default MessagesSection;
+export default TodoView;

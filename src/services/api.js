@@ -9,7 +9,7 @@ const apiClient = axios.create({
   },
 });
 
-// Interceptor per aggiungere il token a tutte le richieste
+// Prima aggiungiamo il token
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -18,26 +18,61 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+// Poi logghiamo la configurazione completa incluso il token
+apiClient.interceptors.request.use(
+  (config) => {
+    //console.log('Request Config:', {
+    //  url: config.url,
+    //  method: config.method,
+    //  headers: config.headers,
+    //  baseURL: config.baseURL,
+    //});
+    return config;
+  },
+  (error) => {
+    console.error('Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor con logging migliorato
 apiClient.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    //console.log('Response Success:', {
+    //  url: response.config.url,
+    //  status: response.status,
+    //  data: response.data,
+    //});
+    return response.data;
+  },
   async (error) => {
+    //console.error('Response Error:', {
+    //  url: error.config?.url,
+    //  status: error.response?.status,
+    //  data: error.response?.data,
+    //  message: error.message,
+    //});
+
+    // Gestione refresh token
     const originalRequest = error.config;
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
         const refreshToken = localStorage.getItem('refreshToken');
-        const newToken = await refreshAuthToken(refreshToken); // Implementare questa funzione
+        const newToken = await refreshAuthToken(refreshToken);
         localStorage.setItem('token', newToken);
         apiClient.defaults.headers.Authorization = `Bearer ${newToken}`;
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return apiClient(originalRequest);
       } catch (refreshError) {
+        console.error('Refresh Token Error:', refreshError);
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }
+
     const customError = new Error(
       error.response?.data?.message || 'Si è verificato un errore'
     );
@@ -46,29 +81,6 @@ apiClient.interceptors.response.use(
     throw customError;
   }
 );
-
-// Funzione per gestire il refresh del token (da implementare lato backend)
-async function refreshAuthToken(refreshToken) {
-  const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-    refreshToken,
-  });
-  return response.data.token;
-}
-
-
-// Interceptor per gestire gli errori
-//apiClient.interceptors.response.use(
-//  (response) => response.data,
-//  (error) => {
-//    const customError = new Error(
-//      error.response?.data?.message || 'Si è verificato un errore'
-//    );
-//    customError.code = error.response?.status;
-//    customError.data = error.response?.data;
-//    throw customError;
-//  }
-//);
-
 // Servizio per gestire i tasks
 export const TasksService = {
   getTasksForDashboard: () => apiClient.get('/aggregate/dashboard'),
@@ -96,7 +108,7 @@ export const StepsService = {
   updateStep: (id, data) => apiClient.put(`/steps/${id}`, data),
   deleteStep: (id) => apiClient.delete(`/steps/${id}`),
   updateStepStatus: async (stepId, completed) => {
-    const response = await apiClient.patch(`/steps/${stepId}`, { completed });
+    const response = await apiClient.patch(`/steps/${stepid}`, { completed });
     return response.data;
   },
 
@@ -108,6 +120,7 @@ export const StepsTempService = {
   createStep: (data) => apiClient.post('/stepstemp', data),
   updateStep: (id, data) => apiClient.put(`/stepstemp/${id}`, data),
   deleteStep: (id) => apiClient.delete(`/stepstemp/${id}`),
+
 };
 
 // Servizio per gestire le categories
@@ -152,13 +165,77 @@ export const MessageService = {
   markAsRead: (messageId) => apiClient.patch(`/messages/${messageId}/read`),
 };
 
+//export const TodoService2 = {
+//  getTodos: () => apiClient.get('/todos'),
+//  getTodosSent: () => apiClient.get('/todos/sent'),
+//  getTodosReceived: () => apiClient.get('/todos/received'),
+//  getTodo: (id) => apiClient.get(`/todos/${id}`),
+//  createTodo: (data) => apiClient.post('/todos', data),
+//  updateTodo: (id, data) => apiClient.put(`/todos/${id}`, data),
+//  deleteTodo: (id) => apiClient.delete(`/todos/${id}`),
+//  markAsRead: (id) => apiClient.patch(`/todos/${id}/read`),
+//};
+
+export const TodoService3 = {
+  getTodos: () => apiClient.get('/todos'),
+  getTodosSent: async () => {
+    try {
+      const response = await apiClient.get('/todos/sent');
+      return response;
+    } catch (error) {
+      console.error('Error fetching sent todos:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  getTodosReceived: async () => {
+    try {
+      const response = await apiClient.get('/todos/received');
+      return response;
+    } catch (error) {
+      console.error('Error fetching received todos:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  updateTodoStatus: async ({ id, status }) => {
+    try {
+      const response = await apiClient.patch(`/todos/${id}/status`, { status });
+      return response;
+    } catch (error) {
+      console.error('Error updating todo status:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+};
+
 export const TodoService = {
   getTodos: () => apiClient.get('/todos'),
-  getTodosSent: () => apiClient.get('/todos/sent'),
-  getTodosReceived: () => apiClient.get('/todos/received'),
-  getTodo: (id) => apiClient.get(`/todos/${id}`),
+  getTodosSent: async () => {
+    try {
+      const response = await apiClient.get('/todos/sent');
+      return response;
+    } catch (error) {
+      console.error('Error fetching sent todos:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  getTodosReceived: async () => {
+    try {
+      const response = await apiClient.get('/todos/received');
+      return response;
+    } catch (error) {
+      console.error('Error fetching received todos:', error.response?.data || error.message);
+      throw error;
+    }
+  },
   createTodo: (data) => apiClient.post('/todos', data),
-  updateTodo: (id, data) => apiClient.put(`/todos/${id}`, data),
-  deleteTodo: (id) => apiClient.delete(`/todos/${id}`),
-  markAsRead: (id) => apiClient.patch(`/todos/${id}/read`),
+  updateTodoStatus: async ({ id, status }) => {
+    try {
+      const response = await apiClient.patch(`/todos/${id}/status`, { status });
+      return response;
+    } catch (error) {
+      console.error('Error updating todo status:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  markAsRead: (id) => apiClient.patch(`/todos/${id}/read`)
 };
