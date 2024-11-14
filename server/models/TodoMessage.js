@@ -1,4 +1,3 @@
-// models/TodoMessage.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../database');
 
@@ -33,8 +32,11 @@ const TodoMessage = sequelize.define('TodoMessage', {
     allowNull: false
   },
   priority: {
-    type: DataTypes.ENUM('low', 'medium', 'high'),
-    defaultValue: 'medium'
+    type: DataTypes.STRING,  // Cambiato da ENUM a STRING
+    defaultValue: 'medium',
+    validate: {
+      isIn: [['low', 'medium', 'high']]  // Validazione per simulare ENUM
+    }
   },
   dueDate: {
     type: DataTypes.DATE,
@@ -53,12 +55,18 @@ const TodoMessage = sequelize.define('TodoMessage', {
     allowNull: true
   },
   status: {
-    type: DataTypes.ENUM('pending', 'read', 'in_progress', 'completed'),
-    defaultValue: 'pending'
+    type: DataTypes.STRING,  // Cambiato da ENUM a STRING
+    defaultValue: 'pending',
+    validate: {
+      isIn: [['pending', 'read', 'in_progress', 'completed']]  // Validazione per simulare ENUM
+    }
   },
   type: {
-    type: DataTypes.ENUM('general', 'step_notification'),
-    defaultValue: 'general'
+    type: DataTypes.STRING,  // Cambiato da ENUM a STRING
+    defaultValue: 'general',
+    validate: {
+      isIn: [['general', 'step_notification']]  // Validazione per simulare ENUM
+    }
   },
   relatedTaskId: {
     type: DataTypes.INTEGER,
@@ -78,10 +86,10 @@ const TodoMessage = sequelize.define('TodoMessage', {
   }
 });
 
+// Definiamo le associazioni
 TodoMessage.associate = (models) => {
   TodoMessage.belongsTo(models.User, { as: 'sender', foreignKey: 'senderId' });
   TodoMessage.belongsTo(models.User, { as: 'recipient', foreignKey: 'recipientId' });
-
   TodoMessage.belongsTo(models.Task, { as: 'relatedTask', foreignKey: 'relatedTaskId' });
   TodoMessage.belongsTo(models.Step, { as: 'relatedStep', foreignKey: 'relatedStepId' });
 };
@@ -91,7 +99,5 @@ const syncDatabase = async () => {
 };
 
 syncDatabase();
-
-
 
 module.exports = TodoMessage;

@@ -1,4 +1,4 @@
-// WorkDetails.js
+const { Op } = require('sequelize');
 const Work = require('./Work');
 const Provider = require('./Provider');
 const Category = require('./Category');
@@ -21,23 +21,59 @@ Task.hasMany(Step, { foreignKey: 'taskid', as: 'steps' }); // Un task pu� aver
 
 
 // Funzione per ottenere tutti i lavori con provider e categoria
-const getWorksWithDetails = async () => {
+const getWorksWithDetails = async ({ page = 1, limit = 10, search = '', sort = 'id', order = 'ASC', categoryid, providerid }) => {
   try {
-    const works = await Work.findAll({
+    let whereClause = {};
+
+    // Gestione ricerca
+    if (search) {
+      whereClause = {
+        ...whereClause,
+        name: {
+          [Op.like]: `%${search}%`
+        }
+      };
+    }
+
+    // Filtri per categoria e provider
+    if (categoryid) whereClause.categoryid = categoryid;
+    if (providerid) whereClause.providerid = providerid;
+
+    // Calcola offset per la paginazione
+    const offset = (page - 1) * limit;
+
+    // Query principale con paginazione e filtri
+    const { rows: works, count: total } = await Work.findAndCountAll({
+      where: whereClause,
       include: [
         {
           model: Provider,
           as: 'provider',
-          attributes: ['id', 'name'], // Include solo i campi necessari
+          attributes: ['id', 'name'],
         },
         {
           model: Category,
           as: 'category',
-          attributes: ['id', 'name'],
+          attributes: ['id', 'name', 'color'],
         }
-      ]
+      ],
+      order: [[sort, order]],
+      limit: parseInt(limit),
+      offset: offset
     });
-    return works;
+
+    // Calcola il numero totale di pagine
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      works,
+      metadata: {
+        total,
+        pages: totalPages,
+        currentPage: page,
+        perPage: limit
+      }
+    };
   } catch (error) {
     console.error('Errore nel recupero dei dettagli dei lavori:', error);
     throw error;
@@ -102,48 +138,6 @@ const getTasksWithDetails = async () => {
   }
 };
 
-const getTasksForDashboard2 = async () => {
-  try {
-    const tasks = await Task.findAll({
-      include: [
-        {
-          model: Work,
-          as: 'work',
-          attributes: ['id', 'name'], // Attributi di Work
-          include: [
-            {
-              model: Provider,
-              as: 'provider',
-              attributes: ['id', 'name'], // Attributi di Provider
-            },
-            {
-              model: Category,
-              as: 'category',
-              attributes: ['id', 'color'], // Attributi di Category
-            }
-          ]
-        },
-        {
-          model: Step,
-          as: 'step',
-          attributes: ['id', 'name'], // Attributi di Step
-          include: [
-            {
-              model: User,
-              as: 'user',
-              attributes: ['id', 'name'], // Attributi di User
-            }
-          ]
-        }
-      ],
-      //attributes: ['id', 'deliveryDate','completed'], // Attributi di Task
-    });
-    return tasks;
-  } catch (error) {
-    console.error('Errore nel recupero dei task per il dashboard:', error);
-    throw error;
-  }
-};
 
 const getTasksForDashboard = async () => {
   try {

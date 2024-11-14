@@ -11,9 +11,21 @@ const router = express.Router();
 
 router.get('/works', async (req, res) => {
   try {
-    const works = await getWorksWithDetails();
+    const { page, limit, search, sort, order, categoryid, providerid } = req.query;
+
+    const works = await getWorksWithDetails({
+      page: parseInt(page) || 1,
+      limit: parseInt(limit) || 10,
+      search: search || '',
+      sort: sort || 'id',
+      order: order || 'ASC',
+      categoryid: categoryid ? parseInt(categoryid) : null,
+      providerid: providerid ? parseInt(providerid) : null
+    });
+
     res.json(works);
   } catch (error) {
+    console.error('Errore aggregazione works:', error);
     res.status(500).json({ error: 'Errore nel recupero delle lavorazioni' });
   }
 });

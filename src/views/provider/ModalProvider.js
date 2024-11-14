@@ -11,6 +11,8 @@ import {
   CFormInput,
   CAlert,
 } from '@coreui/react';
+import CIcon from '@coreui/icons-react';
+import * as icon from '@coreui/icons';
 
 const ModalProvider = ({ visible, onClose, onSave, selectedItem }) => {
   const [formData, setFormData] = useState({

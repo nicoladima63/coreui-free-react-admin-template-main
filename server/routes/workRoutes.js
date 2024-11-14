@@ -4,19 +4,40 @@ const authenticateToken = require('../middleware/authMiddleware'); // Importa il
 const router = express.Router();
 
 // Get all works 
+//router.get('/', async (req, res) => {
+//  const {name, providerid, categoryid } = req.query;
+
+//  let whereClause = {};
+//  if (name) whereClause.name = name;
+//  if (providerid) whereClause.providerid = providerid;
+//  if (categoryid) whereClause.categoryid = categoryid;
+
+//  try {
+//    const records = await Work.findAll({ where: whereClause });
+//    res.json(records);
+//  } catch (error) {
+//    res.status(500).json({ error: 'Errore nel recupero delle lavorazioni' });
+//  }
+//});
+
 router.get('/', async (req, res) => {
-  const {name, providerid, categoryid } = req.query;
-
-  let whereClause = {};
-  if (name) whereClause.name = name;
-  if (providerid) whereClause.providerid = providerid;
-  if (categoryid) whereClause.categoryid = categoryid;
-
   try {
-    const records = await Work.findAll({ where: whereClause });
-    res.json(records);
+    const { page = 1, limit = 10, sort = 'id', order = 'ASC' } = req.query;
+
+    const offset = (page - 1) * limit;
+    const { count, rows } = await Work.findAndCountAll({
+      limit: parseInt(limit),
+      offset,
+      order: [[sort, order]]
+    });
+
+    res.json({
+      works: rows,
+      total: count,
+      pages: Math.ceil(count / parseInt(limit))
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero delle lavorazioni' });
+    res.status(500).json({ error: 'Failed to fetch works' });
   }
 });
 

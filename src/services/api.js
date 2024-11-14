@@ -1,6 +1,9 @@
 // services/api.js
+import axiosRetry from 'axios-retry';
+import { backOff } from 'exponential-backoff';
 import axios from 'axios';
 import { API_BASE_URL } from '../constants/config';
+
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -81,6 +84,16 @@ apiClient.interceptors.response.use(
     throw customError;
   }
 );
+
+// Configura retry per axios
+axiosRetry(apiClient, {
+  retries: 3,
+  retryDelay: (retryCount) => retryCount * 1000,
+  retryCondition: (error) => {
+    return retry.isNetworkOrIdempotentRequestError(error) || error.code === 'ECONNABORTED';
+  }
+});
+
 // Servizio per gestire i tasks
 export const TasksService = {
   getTasksForDashboard: () => apiClient.get('/aggregate/dashboard'),
@@ -89,16 +102,239 @@ export const TasksService = {
   createTask: (data) => apiClient.post('/tasks', data),
   updateTask: (id, data) => apiClient.put(`/tasks/${id}`, data),
   deleteTask: (id) => apiClient.delete(`/tasks/${id}`),
+  verifyTemplateAvailability: async (workId) => {
+    try {
+      const response = await apiClient.get(`/tasks/verify-template/${workId}`);
+      return response;
+    } catch (error) {
+      console.error('Error verifying template:', error);
+      throw new Error('Failed to verify template availability');
+    }
+  },
+  createTaskWithSteps: async (taskData) => {
+    // Implementa exponential backoff per tentativi multipli
+    const backoffOptions = {
+      numOfAttempts: 3,
+      startingDelay: 1000,
+      timeMultiple: 2,
+      maxDelay: 5000,
+    };
+
+    try {
+      // Prima verifica la disponibilità del template
+      const templateCheck = await TasksService.verifyTemplateAvailability(taskData.workid);
+      if (!templateCheck.hasTemplate) {
+        throw new Error('No template steps available for this work type');
+      }
+
+      // Esegui la creazione con backoff exponenziale
+      const response = await backOff(
+        () => apiClient.post('/tasks', taskData),
+        backoffOptions
+      );
+
+      return {
+        success: true,
+        data: response,
+        stepCount: response.stepCount
+      };
+
+    } catch (error) {
+      // Gestione dettagliata degli errori
+      let errorMessage = 'Failed to create task';
+      let errorDetails = {};
+
+      if (error.response) {
+        // Error response from server
+        errorMessage = error.response.data.error || errorMessage;
+        errorDetails = error.response.data.details || {};
+      } else if (error.request) {
+        // Request made but no response
+        errorMessage = 'Network error - no response received';
+        errorDetails = { type: 'NETWORK_ERROR' };
+      } else {
+        // Error in request setup
+        errorMessage = error.message;
+        errorDetails = { type: 'REQUEST_SETUP_ERROR' };
+      }
+
+      console.error('Task creation error:', {
+        message: errorMessage,
+        details: errorDetails,
+        originalError: error
+      });
+
+      throw {
+        message: errorMessage,
+        details: errorDetails,
+        code: error.response?.status || 500
+      };
+    }
+  },
+  // Metodo helper per il cleanup in caso di errori
+  cleanupFailedTask: async (taskId) => {
+    try {
+      await apiClient.delete(`/tasks/${taskId}`);
+      console.log('Cleanup successful for failed task:', taskId);
+    } catch (cleanupError) {
+      console.error('Cleanup failed for task:', taskId, cleanupError);
+    }
+  }
 };
 
 // Servizio per gestire i works
+//export const WorksService = {
+//  getWorks: () => apiClient.get('/aggregate/works'),
+//  getWork: (id) => apiClient.get(`/works/${id}`),
+//  createWork: (data) => apiClient.post('/works', data),
+//  updateWork: (id, data) => apiClient.put(`/works/${id}`, data),
+//  deleteWork: (id) => apiClient.delete(`/works/${id}`),
+//};
+
 export const WorksService = {
-  getWorks: () => apiClient.get('/aggregate/works'),
+  // Query di base
+  getWorks: async (params = {}) => {
+    const { page, limit, search, categoryid, providerid, status, sort, order } = params;
+    const queryParams = new URLSearchParams();
+
+    if (page) queryParams.append('page', page);
+    if (limit) queryParams.append('limit', limit);
+    if (search) queryParams.append('search', search);
+    if (categoryid) queryParams.append('categoryid', categoryid);
+    if (providerid) queryParams.append('providerid', providerid);
+    if (status) queryParams.append('status', status);
+    if (sort) queryParams.append('sort', sort);
+    if (order) queryParams.append('order', order);
+
+    const url = `/aggregate/works?${queryParams.toString()}`;
+    return apiClient.get(url);
+  },
+
   getWork: (id) => apiClient.get(`/works/${id}`),
-  createWork: (data) => apiClient.post('/works', data),
-  updateWork: (id, data) => apiClient.put(`/works/${id}`, data),
-  deleteWork: (id) => apiClient.delete(`/works/${id}`),
+
+  // Operazioni CRUD avanzate
+  createWork: async (workData) => {
+    try {
+      const response = await apiClient.post('/works', workData);
+      return {
+        success: true,
+        data: response,
+        message: 'Work created successfully'
+      };
+    } catch (error) {
+      throw {
+        message: error.response?.data?.error || 'Failed to create work',
+        details: error.response?.data?.details || {},
+        code: error.response?.status || 500
+      };
+    }
+  },
+
+  updateWork: async (id, workData) => {
+    try {
+      const response = await apiClient.put(`/works/${id}`, workData);
+      return {
+        success: true,
+        data: response,
+        message: 'Work updated successfully'
+      };
+    } catch (error) {
+      throw {
+        message: error.response?.data?.error || 'Failed to update work',
+        details: error.response?.data?.details || {},
+        code: error.response?.status || 500
+      };
+    }
+  },
+
+  deleteWork: async (id) => {
+    try {
+      await apiClient.delete(`/works/${id}`);
+      return {
+        success: true,
+        message: 'Work deleted successfully'
+      };
+    } catch (error) {
+      throw {
+        message: error.response?.data?.error || 'Failed to delete work',
+        code: error.response?.status || 500
+      };
+    }
+  },
+
+  // Operazioni speciali
+  duplicateWork: async (id, newName) => {
+    try {
+      const response = await apiClient.post(`/works/${id}/duplicate`, { newName });
+      return {
+        success: true,
+        data: response.work,
+        message: 'Work duplicated successfully'
+      };
+    } catch (error) {
+      throw {
+        message: error.response?.data?.error || 'Failed to duplicate work',
+        code: error.response?.status || 500
+      };
+    }
+  },
+
+  exportWork: (id) => apiClient.get(`/works/${id}/export`),
+
+  importWork: async (workData) => {
+    try {
+      const response = await apiClient.post('/works/import', workData);
+      return {
+        success: true,
+        data: response.work,
+        message: 'Work imported successfully'
+      };
+    } catch (error) {
+      throw {
+        message: error.response?.data?.error || 'Failed to import work',
+        details: error.response?.data?.details || {},
+        code: error.response?.status || 500
+      };
+    }
+  },
+
+  reorderSteps: async (workId, steps) => {
+    try {
+      const response = await apiClient.patch(`/works/${workId}/reorder-steps`, { steps });
+      return {
+        success: true,
+        data: response.steps,
+        message: 'Steps reordered successfully'
+      };
+    } catch (error) {
+      throw {
+        message: error.response?.data?.error || 'Failed to reorder steps',
+        code: error.response?.status || 500
+      };
+    }
+  },
+
+  // Metodo helper per verificare lo stato di un work
+  verifyWorkStatus: async (workId) => {
+    try {
+      const work = await WorksService.getWork(workId);
+      const steps = await StepsTempService.getStepsForWork(workId);
+
+      return {
+        hasSteps: steps.length > 0,
+        stepCount: steps.length,
+        status: work.status,
+        version: work.version
+      };
+    } catch (error) {
+      throw {
+        message: 'Failed to verify work status',
+        code: error.response?.status || 500
+      };
+    }
+  }
 };
+
 
 // Servizio per gestire i steps
 export const StepsService = {
@@ -108,7 +344,7 @@ export const StepsService = {
   updateStep: (id, data) => apiClient.put(`/steps/${id}`, data),
   deleteStep: (id) => apiClient.delete(`/steps/${id}`),
   updateStepStatus: async (stepId, completed) => {
-    const response = await apiClient.patch(`/steps/${stepid}`, { completed });
+    const response = await apiClient.patch(`/steps/${stepId}`, { completed });
     return response.data;
   },
 
@@ -120,6 +356,29 @@ export const StepsTempService = {
   createStep: (data) => apiClient.post('/stepstemp', data),
   updateStep: (id, data) => apiClient.put(`/stepstemp/${id}`, data),
   deleteStep: (id) => apiClient.delete(`/stepstemp/${id}`),
+  reorderStep: async (workId, stepId, newOrder) => {
+    try {
+      const response = await apiClient.patch(`/stepstemp/${stepId}/reorder`, {
+        workid: workId,
+        order: newOrder
+      });
+      return response;
+    } catch (error) {
+      throw new Error('Failed to reorder step');
+    }
+  },
+
+  bulkUpdateSteps: async (workId, steps) => {
+    try {
+      const response = await apiClient.post(`/stepstemp/bulk-update`, {
+        workid: workId,
+        steps
+      });
+      return response;
+    } catch (error) {
+      throw new Error('Failed to update steps');
+    }
+  }
 
 };
 

@@ -82,7 +82,7 @@ router.post('/login', async (req, res) => {
     const accessToken = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.ACCESS_TOKEN_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '30d' }
     );
 
     // Prepara l'oggetto user escludendo dati sensibili

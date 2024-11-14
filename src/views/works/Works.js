@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   CCard,
@@ -14,38 +14,69 @@ import {
   CTableHeaderCell,
   CTableRow,
   CTableDataCell,
-  CTableCaption,
   CSpinner,
   CAlert,
+  CFormInput,
+  CInputGroup,
+  CDropdown,
+  CDropdownToggle,
+  CDropdownMenu,
+  CDropdownItem,
+  CBadge,
+  CTooltip,
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+
 import ModalWork from './ModalWork';
 import ModalStep from './ModalStep';
 import { WorksService, StepsTempService } from '../../services/api';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
+import { useToast } from '../../hooks/useToast';
 import { QUERY_KEYS } from '../../constants/queryKeys';
-import { API_ERROR_MESSAGES } from '../../constants/errorMessages';
 
 const WorksView = () => {
   const queryClient = useQueryClient();
-  const [selectedItem, setSelectedItem] = useState(null);
+  const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
+  const { showToast } = useToast();
+
+  // Stati locali
+  const [selectedWork, setSelectedWork] = useState(null);
+  const [selectedStep, setSelectedStep] = useState(null);
   const [isWorkModalVisible, setIsWorkModalVisible] = useState(false);
   const [isStepModalVisible, setIsStepModalVisible] = useState(false);
   const [activeWorkId, setActiveWorkId] = useState(null);
-  const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState({
+    categoryid: '',
+    providerid: '',
+    status: ''
+  });
+  const [sort, setSort] = useState({ field: 'id', direction: 'asc' });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  // Query per le lavorazioni
+  // Query principale per i works con filtri, ordinamento e paginazione
   const {
-    data: works = [],
+    data: worksData = { works: [], total: 0, pages: 0 },
     isLoading: isWorksLoading,
     error: worksError,
+    isFetching: isWorksFetching,
   } = useQuery({
-    queryKey: [QUERY_KEYS.WORKS],
-    queryFn: WorksService.getWorks,
+    queryKey: [QUERY_KEYS.WORKS, filters, sort, page, pageSize, searchTerm],
+    queryFn: () => WorksService.getWorks({
+      page,
+      limit: pageSize,
+      search: searchTerm,
+      ...filters,
+      sort: sort.field,
+      order: sort.direction.toUpperCase()
+    }),
+    keepPreviousData: true
   });
 
-  // Query per le fasi di una lavorazione
+  // Query per gli step di un work
   const {
     data: steps = [],
     isLoading: isStepsLoading,
@@ -56,146 +87,220 @@ const WorksView = () => {
     enabled: !!activeWorkId,
   });
 
-  // Mutation per creare un nuovo work
-  const createWorkMutation = useMutation({
-    mutationFn: WorksService.createWork,
-    onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.WORKS]);
-      setIsWorkModalVisible(false); // Chiudi il modale alla creazione
-    },
-    onError: (error) => {
-      console.error('Errore durante la creazione della lavorazione:', error);
-    },
-  });
-
-  // Mutation per aggiornare un work
-  const updateWorkMutation = useMutation({
-    mutationFn: WorksService.updateWork,
-    onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.WORKS]);
-      setIsWorkModalVisible(false); // Chiudi il modale dopo l'aggiornamento
-    },
-    onError: (error) => {
-      console.error('Errore durante l\'aggiornamento della lavorazione:', error);
-    },
-  });
-
-  // Mutation per eliminazione lavorazione
+  // Mutations
   const deleteMutation = useMutation({
     mutationFn: WorksService.deleteWork,
     onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.WORKS]);
+      showToast({
+        message: 'Lavorazione eliminata con successo',
+        type: 'success'
+      });
     },
+    onError: (error) => {
+      showToast({
+        message: `Errore durante l'eliminazione: ${error.message}`,
+        type: 'error'
+      });
+    }
   });
 
+  const reorderStepsMutation = useMutation({
+    mutationFn: WorksService.reorderSteps,
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.STEPSTEMP, activeWorkId]);
+      showToast({
+        message: 'Ordine fasi aggiornato',
+        type: 'success'
+      });
+    }
+  });
+
+  // Handlers
   const handleDeleteWork = async (id) => {
     const confirmed = await showConfirmDialog({
       title: 'Conferma eliminazione',
-      message: 'Sei sicuro di voler eliminare questa lavorazione?',
+      message: 'Sei sicuro di voler eliminare questa lavorazione? Verranno eliminate anche tutte le fasi associate.',
+      confirmText: 'Elimina',
+      cancelText: 'Annulla',
+      confirmColor: 'danger'
     });
 
     if (confirmed) {
-      try {
-        await deleteMutation.mutateAsync(id);
-      } catch (error) {
-        console.error('Errore durante l\'eliminazione:', error);
+      await deleteMutation.mutateAsync(id);
+    }
+  };
+
+  const handleDuplicateWork = async (work) => {
+    try {
+      const newName = await showConfirmDialog({
+        title: 'Duplica lavorazione',
+        message: 'Inserisci il nome per la nuova lavorazione:',
+        input: true,
+        inputValue: `${work.name} (Copy)`,
+        confirmText: 'Duplica',
+        cancelText: 'Annulla'
+      });
+
+      if (newName) {
+        const result = await WorksService.duplicateWork(work.id, newName);
+        showToast({
+          message: 'Lavorazione duplicata con successo',
+          type: 'success'
+        });
+        queryClient.invalidateQueries([QUERY_KEYS.WORKS]);
       }
+    } catch (error) {
+      showToast({
+        message: `Errore durante la duplicazione: ${error.message}`,
+        type: 'error'
+      });
     }
   };
-  const handleSaveWork = async (workData) => {
-    if (workData.id) {
-      await updateWorkMutation.mutateAsync(workData); // Modifica esistente
-    } else {
-      await createWorkMutation.mutateAsync(workData); // Creazione nuova
+
+  const handleExportWork = async (work) => {
+    try {
+      const data = await WorksService.exportWork(work.id);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `work-${work.name}-${new Date().toISOString()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      showToast({
+        message: `Errore durante l'esportazione: ${error.message}`,
+        type: 'error'
+      });
     }
   };
 
+  const handleImportWork = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = async (e) => {
+      try {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const data = JSON.parse(event.target.result);
+          await WorksService.importWork(data);
+          showToast({
+            message: 'Lavorazione importata con successo',
+            type: 'success'
+          });
+          queryClient.invalidateQueries([QUERY_KEYS.WORKS]);
+        };
+        reader.readAsText(file);
+      } catch (error) {
+        showToast({
+          message: `Errore durante l'importazione: ${error.message}`,
+          type: 'error'
+        });
+      }
+    };
+    input.click();
+  };
 
+  const handleDragEnd = async (result) => {
+    if (!result.destination) return;
 
+    const sourceIndex = result.source.index;
+    const destIndex = result.destination.index;
 
+    if (sourceIndex === destIndex) return;
 
-  // Mutation per creare un nuova fase
-  const createStepMutation = useMutation({
-    mutationFn: StepsTempService.createStep,
-    onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.STEPSTEMP]);
-      setIsStepModalVisible(false); // Chiudi il modale alla creazione
-    },
-    onError: (error) => {
-      console.error('Errore durante la creazione della fase:', error);
-    },
-  });
+    const reorderedSteps = Array.from(steps);
+    const [removed] = reorderedSteps.splice(sourceIndex, 1);
+    reorderedSteps.splice(destIndex, 0, removed);
 
-  // Mutation per aggiornare una fase
-  const updateStepMutation = useMutation({
-    mutationFn: StepsTempService.updateStep,
-    onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.STEPSTEMP]);
-      setIsStepModalVisible(false); // Chiudi il modale dopo l'aggiornamento
-    },
-    onError: (error) => {
-      console.error('Errore durante l\'aggiornamento della fase:', error);
-    },
-  });
+    // Aggiorna gli ordini
+    const updatedSteps = reorderedSteps.map((step, index) => ({
+      ...step,
+      order: index + 1
+    }));
 
-  // Mutation per eliminazione fase
-  const deleteStepMutation = useMutation({
-    mutationFn: StepsTempService.deleteStep,
-    onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.STEPSTEMP, activeWorkId]);
-    },
-  });
+    try {
+      await reorderStepsMutation.mutateAsync({
+        workId: activeWorkId,
+        steps: updatedSteps
+      });
+    } catch (error) {
+      showToast({
+        message: `Errore durante il riordino: ${error.message}`,
+        type: 'error'
+      });
+    }
+  };
 
-  // Funzione per aprire e chiudere la grid delle fasi
-  const handleOpenSteps = useCallback((workId) => {
-    setActiveWorkId((prevId) => (prevId === workId ? null : workId));
+  const handleSearch = useCallback((value) => {
+    setSearchTerm(value);
+    setPage(1);
   }, []);
 
+  const handleSort = useCallback((field) => {
+    setSort(prev => ({
+      field,
+      direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  }, []);
 
-  const handleDeleteStep = async (id) => {
-    const confirmed = await showConfirmDialog({
-      title: 'Conferma eliminazione',
-      message: 'Sei sicuro di voler eliminare questa fase?',
-    });
+  const handleFilterChange = useCallback((key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setPage(1);
+  }, []);
 
-    if (confirmed) {
-      try {
-        await deleteStepMutation.mutateAsync(id);
-      } catch (error) {
-        console.error('Errore durante l\'eliminazione della fase:', error);
-      }
-    }
-  };
+  // Computed values
+  const filteredWorks = useMemo(() => worksData.works, [worksData]);
 
-
-  const handleSaveStep = async (stepData) => {
-    if (stepData.id) {
-      await updateStepMutation.mutateAsync(stepData); // Modifica esistente
-    } else {
-      await createStepMutation.mutateAsync(stepData); // Creazione nuova
-    }
-  };
-
-
-
+  // Render helpers
   const renderError = (error) => (
     <CAlert color="danger" className="text-center">
-      {error?.message || API_ERROR_MESSAGES.GENERIC_ERROR}
+      {error?.message || 'Si è verificato un errore'}
     </CAlert>
   );
 
   const renderLoading = () => (
-    <div className="text-center">
+    <div className="text-center p-3">
       <CSpinner color="primary" />
     </div>
   );
 
   const renderEmptyState = () => (
     <CAlert color="warning" className="text-center">
-      Nessuna lavorazione disponibile.
+      Nessuna lavorazione disponibile
     </CAlert>
   );
 
+  const CategoryBadge = ({ category }) => {
+    if (!category) return <CBadge color="light">Non assegnata</CBadge>;
+
+    return (
+      <CBadge
+        style={{
+          backgroundColor: category.color || '#6c757d',
+          color: isLightColor(category.color) ? '#000' : '#fff'
+        }}
+      >
+        {category.name}
+      </CBadge>
+    );
+  };
+
+  // Funzione helper per determinare se un colore è chiaro
+  const isLightColor = (color) => {
+    if (!color) return false;
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const brightness = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return brightness > 155;
+  };
   const renderStepsTable = (workId) => (
     <CTableRow>
       <CTableDataCell colSpan="5">
@@ -204,77 +309,84 @@ const WorksView = () => {
         ) : stepsError ? (
           renderError(stepsError)
         ) : (
-          <CTable small bordered borderColor="secondary">
-            <CTableCaption>Fasi della lavorazione</CTableCaption>
-            <CTableHead>
-              <CTableRow>
-                <CTableHeaderCell>#ID Fase</CTableHeaderCell>
-                <CTableHeaderCell>Ordine</CTableHeaderCell>
-                <CTableHeaderCell>Nome fase</CTableHeaderCell>
-                <CTableHeaderCell>Operatore</CTableHeaderCell>
-                <CTableHeaderCell className="text-center">Stato</CTableHeaderCell>
-                <CTableHeaderCell className="text-end">Azioni</CTableHeaderCell>
-              </CTableRow>
-            </CTableHead>
-            <CTableBody>
-              {steps.map((step) => (
-                <CTableRow key={step.id}>
-                  <CTableDataCell>{step.id}</CTableDataCell>
-                  <CTableDataCell>{step.order}</CTableDataCell>
-                  <CTableDataCell>{step.name}</CTableDataCell>
-                  <CTableDataCell>{step.user.name}</CTableDataCell>
-                  <CTableDataCell className="text-center">
-                    {step.completed ? (
-                      <CIcon icon={icon.cilCheckCircle} className="text-success" />
-                    ) : (
-                      <CIcon icon={icon.cilXCircle} className="text-danger" />
-                    )}
-                  </CTableDataCell>
-                  <CTableDataCell className="text-end">
-                    <CButtonGroup>
-                      <CButton color="warning" size="sm"
-                        onClick={() => {
-                          setSelectedItem(step);
-                          setIsStepModalVisible(true);
-                        }}
-                      >
-                        <CIcon icon={icon.cilPencil} />
-                      </CButton>
-                      <CButton
-                        color="danger"
-                        size="sm"
-                        onClick={() => handleDeleteStep(step.id)}
-                      >
-                        <CIcon icon={icon.cilTrash} />
-                      </CButton>
-                    </CButtonGroup>
-                  </CTableDataCell>
-                </CTableRow>
-              ))}
-
-              <CTableHead>
-                <CTableRow>
-                  <CTableDataCell colSpan={6} className="text-end">
-                    <CButton
-                      color="info"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedItem(null);
-
-                        setIsStepModalVisible(true);
-                      }}
-                    >Nuova Fase
-                      <CIcon icon={icon.cilPlus} />
-                    </CButton>
-
-                  </CTableDataCell>
-                </CTableRow>
-              </CTableHead>
-
-
-            </CTableBody>
-          </CTable>
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId={`work-${workId}`}>
+              {(provided) => (
+                <div ref={provided.innerRef} {...provided.droppableProps}>
+                  <CTable small bordered borderColor="secondary">
+                    <CTableHead>
+                      <CTableRow>
+                        <CTableHeaderCell style={{ width: '50px' }}>#</CTableHeaderCell>
+                        <CTableHeaderCell>Nome fase</CTableHeaderCell>
+                        <CTableHeaderCell>Operatore</CTableHeaderCell>
+                        <CTableHeaderCell className="text-center">Ordine</CTableHeaderCell>
+                        <CTableHeaderCell className="text-end">Azioni</CTableHeaderCell>
+                      </CTableRow>
+                    </CTableHead>
+                    <CTableBody>
+                      {steps.map((step, index) => (
+                        <Draggable
+                          key={step.id}
+                          draggableId={`step-${step.id}`}
+                          index={index}
+                        >
+                          {(provided, snapshot) => (
+                            <CTableRow
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={snapshot.isDragging ? 'dragging' : ''}
+                            >
+                              <CTableDataCell>{step.id}</CTableDataCell>
+                              <CTableDataCell>{step.name}</CTableDataCell>
+                              <CTableDataCell>{step.user?.name}</CTableDataCell>
+                              <CTableDataCell className="text-center">
+                                {step.order}
+                              </CTableDataCell>
+                              <CTableDataCell className="text-end">
+                                <CButtonGroup size="sm">
+                                  <CButton
+                                    color="warning"
+                                    onClick={() => {
+                                      setSelectedStep(step);
+                                      setIsStepModalVisible(true);
+                                    }}
+                                  >
+                                    <CIcon icon={icon.cilPencil} />
+                                  </CButton>
+                                  <CButton
+                                    color="danger"
+                                    onClick={() => handleDeleteStep(step.id)}
+                                  >
+                                    <CIcon icon={icon.cilTrash} />
+                                  </CButton>
+                                </CButtonGroup>
+                              </CTableDataCell>
+                            </CTableRow>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </CTableBody>
+                  </CTable>
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
         )}
+        <div className="text-end mt-2">
+          <CButton
+            color="primary"
+            size="sm"
+            onClick={() => {
+              setSelectedStep(null);
+              setIsStepModalVisible(true);
+            }}
+          >
+            <CIcon icon={icon.cilPlus} className="me-2" />
+            Nuova Fase
+          </CButton>
+        </div>
       </CTableDataCell>
     </CTableRow>
   );
@@ -286,111 +398,230 @@ const WorksView = () => {
           <CCardHeader>
             <div className="d-flex justify-content-between align-items-center">
               <h4 className="mb-0">Gestione Lavorazioni</h4>
-              <CButtonGroup>
-                <CButton
-                  color="primary"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedItem(null);
-                    setIsWorkModalVisible(true);
-                  }}
-                >
-                  <CIcon icon={icon.cilPlus} className="me-2" />
-                  Nuova
-                </CButton>
-                <CButton
-                  color="info"
-                  size="sm"
-                  onClick={() => queryClient.invalidateQueries([QUERY_KEYS.WORKS])}
-                >
-                  <CIcon icon={icon.cilReload} />
-                </CButton>
-              </CButtonGroup>
+
+              <div className="d-flex gap-2">
+                <CInputGroup size="sm" className="w-auto">
+                  <CFormInput
+                    placeholder="Cerca..."
+                    value={searchTerm}
+                    onChange={(e) => handleSearch(e.target.value)}
+                  />
+                  {searchTerm && (
+                    <CButton
+                      color="secondary"
+                      variant="outline"
+                      onClick={() => handleSearch('')}
+                    >
+                      <CIcon icon={icon.cilX} />
+                    </CButton>
+                  )}
+                </CInputGroup>
+
+                <CButtonGroup size="sm">
+                  <CButton
+                    color="primary"
+                    onClick={() => {
+                      setSelectedWork(null);
+                      setIsWorkModalVisible(true);
+                    }}
+                  >
+                    <CIcon icon={icon.cilPlus} className="me-2" />
+                    Nuova
+                  </CButton>
+
+                  <CButton
+                    color="success"
+                    onClick={handleImportWork}
+                  >
+                    <CIcon icon={icon.cilCloudUpload} className="me-2" />
+                    Importa
+                  </CButton>
+
+                  <CButton
+                    color="info"
+                    onClick={() => queryClient.invalidateQueries([QUERY_KEYS.WORKS])}
+                  >
+                    <CIcon icon={icon.cilReload} />
+                  </CButton>
+                </CButtonGroup>
+              </div>
             </div>
           </CCardHeader>
+
           <CCardBody>
             {isWorksLoading ? (
               renderLoading()
             ) : worksError ? (
               renderError(worksError)
-            ) : works.length === 0 ? (
+            ) : filteredWorks.length === 0 ? (
               renderEmptyState()
             ) : (
-              <CTable hover>
-                <CTableHead>
-                  <CTableRow>
-                    <CTableHeaderCell>#ID Lavorazione</CTableHeaderCell>
-                    <CTableHeaderCell>Nome Lavorazione</CTableHeaderCell>
-                    <CTableHeaderCell className="text-center">Stato</CTableHeaderCell>
-                    <CTableHeaderCell className="text-end">Azioni</CTableHeaderCell>
-                  </CTableRow>
-                </CTableHead>
-                <CTableBody>
-                  {works.map((work) => (
-                    <React.Fragment key={work.id}>
-                      <CTableRow>
-                        <CTableDataCell>{work.id}</CTableDataCell>
-                        <CTableDataCell>{work.name}</CTableDataCell>
-                        <CTableDataCell className="text-center">
-                          {work.completed ? (
-                            <CIcon icon={icon.cilCheckCircle} className="text-success" />
-                          ) : (
-                            <CIcon icon={icon.cilXCircle} className="text-danger" />
-                          )}
-                        </CTableDataCell>
-                        <CTableDataCell className="text-end">
-                          <CButtonGroup>
-                            <CButton color="warning" size="sm"
-                              onClick={() => {
-                                setSelectedItem(work);
-                                setIsWorkModalVisible(true);
-                              }}
-                            >
-                              <CIcon icon={icon.cilPencil} />
-                            </CButton>
-                            <CButton
-                              color="danger"
-                              size="sm"
-                              onClick={() => handleDeleteWork(work.id)}
-                            >
-                              <CIcon icon={icon.cilTrash} />
-                            </CButton>
-                            <CButton
-                              color="info"
-                              size="sm"
-                              onClick={() => handleOpenSteps(work.id)}
-                            >
-                              <CIcon icon={icon.cilList} />
-                            </CButton>
-                          </CButtonGroup>
-                        </CTableDataCell>
-                      </CTableRow>
-                      {activeWorkId === work.id && renderStepsTable(work.id)}
-                    </React.Fragment>
-                  ))}
-                </CTableBody>
-              </CTable>
+              <>
+                <CTable hover responsive>
+                  <CTableHead>
+                    <CTableRow>
+                      <CTableHeaderCell
+                        className="cursor-pointer"
+                        onClick={() => handleSort('id')}
+                      >
+                        #ID
+                        {sort.field === 'id' && (
+                          <CIcon
+                            icon={sort.direction === 'asc' ? icon.cilArrowTop : icon.cilArrowBottom}
+                            className="ms-1"
+                          />
+                        )}
+                      </CTableHeaderCell>
+                      <CTableHeaderCell
+                        className="cursor-pointer"
+                        onClick={() => handleSort('name')}
+                      >
+                        Nome Lavorazione
+                        {sort.field === 'name' && (
+                          <CIcon
+                            icon={sort.direction === 'asc' ? icon.cilArrowTop : icon.cilArrowBottom}
+                            className="ms-1"
+                          />
+                        )}
+                      </CTableHeaderCell>
+                      <CTableHeaderCell>Categoria</CTableHeaderCell>
+                      <CTableHeaderCell>Fornitore</CTableHeaderCell>
+                      <CTableHeaderCell className="text-end">Azioni</CTableHeaderCell>
+                    </CTableRow>
+                  </CTableHead>
+                  <CTableBody>
+                    {filteredWorks.map((work) => (
+                      <React.Fragment key={work.id}>
+                        <CTableRow>
+                          <CTableDataCell>{work.id}</CTableDataCell>
+                          <CTableDataCell>
+                            <strong>{work.name}</strong>
+                            {work.description && (
+                              <div className="small text-muted">
+                                {work.description}
+                              </div>
+                            )}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            <CategoryBadge category={work.category} />
+                          </CTableDataCell>
+                          <CTableDataCell>{work.provider?.name}</CTableDataCell>
+                          <CTableDataCell className="text-end">
+                            <CButtonGroup size="sm">
+                              <CTooltip content="Modifica">
+                                <CButton
+                                  color="warning"
+                                  onClick={() => {
+                                    setSelectedWork(work);
+                                    setIsWorkModalVisible(true);
+                                  }}
+                                >
+                                  <CIcon icon={icon.cilPencil} />
+                                </CButton>
+                              </CTooltip>
+
+                              <CTooltip content="Elimina">
+                                <CButton
+                                  color="danger"
+                                  onClick={() => handleDeleteWork(work.id)}
+                                >
+                                  <CIcon icon={icon.cilTrash} />
+                                </CButton>
+                              </CTooltip>
+
+                              <CTooltip content="Duplica">
+                                <CButton
+                                  color="info"
+                                  onClick={() => handleDuplicateWork(work)}
+                                >
+                                  <CIcon icon={icon.cilCopy} />
+                                </CButton>
+                              </CTooltip>
+
+                              <CTooltip content="Esporta">
+                                <CButton
+                                  color="success"
+                                  onClick={() => handleExportWork(work)}
+                                >
+                                  <CIcon icon={icon.cilCloudDownload} />
+                                </CButton>
+                              </CTooltip>
+
+                              <CTooltip content="Gestisci fasi">
+                                <CButton
+                                  color="primary"
+                                  onClick={() => setActiveWorkId(
+                                    activeWorkId === work.id ? null : work.id
+                                  )}
+                                >
+                                  <CIcon icon={icon.cilList} />
+                                </CButton>
+                              </CTooltip>
+                            </CButtonGroup>
+                          </CTableDataCell>
+                        </CTableRow>
+                        {activeWorkId === work.id && renderStepsTable(work.id)}
+                      </React.Fragment>
+                    ))}
+                  </CTableBody>
+                </CTable>
+
+                {/* Paginazione */}
+                <div className="d-flex justify-content-between align-items-center mt-3">
+                  <div className="d-flex align-items-center gap-2">
+                    <select
+                      className="form-select form-select-sm"
+                      value={pageSize}
+                      onChange={(e) => setPageSize(Number(e.target.value))}
+                    >
+                      {[10, 20, 30, 50].map(size => (
+                        <option key={size} value={size}>
+                          {size} per pagina
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-muted">
+                      {`${(page - 1) * pageSize + 1} - ${Math.min(page * pageSize, worksData.total)} di ${worksData.total}`}
+                    </span>
+                  </div>
+
+                  <CButtonGroup size="sm">
+                    <CButton
+                      color="primary"
+                      disabled={page === 1}
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                    >
+                      <CIcon icon={icon.cilChevronLeft} />
+                    </CButton>
+                    <CButton
+                      color="primary"
+                      disabled={page === worksData.pages}
+                      onClick={() => setPage(p => Math.min(worksData.pages, p + 1))}
+                    >
+                      <CIcon icon={icon.cilChevronRight} />
+                    </CButton>
+                  </CButtonGroup>
+                </div>
+              </>
             )}
           </CCardBody>
         </CCard>
       </CCol>
 
-      {isWorkModalVisible && (
-        <ModalWork
-          visible={isWorkModalVisible}
-          onClose={() => setIsWorkModalVisible(false)}
-          onSave={handleSaveWork}
-          selectedWork={selectedItem} // Passa il work selezionato per l'aggiornamento
-        />
-      )}
-      {isStepModalVisible && (
-        <ModalStep
-          visible={isStepModalVisible}
-          onClose={() => setIsStepModalVisible(false)}
-          onSave={handleSaveStep}
-          selectedStep={selectedItem} // Passa la fase selezionata per l'aggiornamento
-        />
-      )}
+      {/* Modals */}
+      <ModalWork
+        visible={isWorkModalVisible}
+        onClose={() => setIsWorkModalVisible(false)}
+        selectedWork={selectedWork}
+      />
+
+      <ModalStep
+        visible={isStepModalVisible}
+        onClose={() => setIsStepModalVisible(false)}
+        selectedStep={selectedStep}
+        workId={activeWorkId}
+      />
+
       <ConfirmDialog />
     </CRow>
   );

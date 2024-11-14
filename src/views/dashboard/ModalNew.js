@@ -1,185 +1,347 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
 import {
   CModal,
   CModalHeader,
   CModalBody,
   CModalFooter,
-  CInputGroup,
   CButton,
   CForm,
   CFormLabel,
   CFormInput,
   CAlert,
+  CSpinner,
+  CProgress,
+  CProgressBar,
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
-
+import { useToast } from '../../hooks/useToast';  // Il tuo hook personalizzato
 import WorkSelect from '../../components/WorkSelect';
-import DatePicker from 'react-datepicker'; // Importa il DatePicker
-import 'react-datepicker/dist/react-datepicker.css'; // Importa il CSS del DatePicker
-
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 import { TasksService } from '../../services/api';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { QUERY_KEYS } from '../../constants/queryKeys';
-import { API_ERROR_MESSAGES } from '../../constants/errorMessages';
 
+// Stati possibili del processo di creazione
+const CREATION_STATES = {
+  IDLE: 'idle',
+  VALIDATING: 'validating',
+  CREATING_TASK: 'creating_task',
+  CREATING_STEPS: 'creating_steps',
+  COMPLETED: 'completed',
+  ERROR: 'error'
+};
 
-const ModalTask = ({ visible, onClose, refreshData }) => {
+const ModalNew = ({ visible, onClose }) => {
   const queryClient = useQueryClient();
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
+  const { showToast } = useToast();  // Usando il tuo hook personalizzato
 
-  const [tasks, setTasks] = useState([]);
-  const [workid, setWorkid] = useState('');
-  const [deliveryDate, setDeliveryDate] = useState(null); // Inizia con null
-  const [patient, setPatient] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
-
-  //Mutation per creare un nuovo task
-  const createWorkMutation = useMutation({
-    mutationFn: TasksService.createTask,
-    onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.TASKS]);
-      setIsWorkModalVisible(false); // Chiudi il modale alla creazione
-    },
-    onError: (error) => {
-      console.error('Errore durante la creazione del record:', error);
-    },
+  // Form state
+  const [formData, setFormData] = useState({
+    workid: '',
+    patient: '',
+    deliveryDate: null
   });
 
+  // Process state
+  const [creationState, setCreationState] = useState(CREATION_STATES.IDLE);
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  const resetForm = () => {
-    setPatient('');
-    setWorkid('');
-    setDeliveryDate(null); // Reset a null
-    setSuccess(false);
-    setError(null);
-  };
+  // Template verification state
+  const [templateInfo, setTemplateInfo] = useState(null);
 
-  const renderError = (error) => (
-    <CAlert color="danger" className="text-center">
-      {error?.message || API_ERROR_MESSAGES.GENERIC_ERROR}
-    </CAlert>
-  );
+  // Gestione cache locale per ripristino
+  useEffect(() => {
+    const cachedData = localStorage.getItem('modalNewDraft');
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        setFormData(parsed);
+        setHasUnsavedChanges(true);
+      } catch (e) {
+        console.error('Error parsing cached form data:', e);
+        localStorage.removeItem('modalNewDraft');
+      }
+    }
+  }, []);
 
-  const renderSuccess = () => (
-    <CAlert color="success" className="text-center">
-      Record aggiunto con successo!
-    </CAlert>
-  );
+  // Salvataggio automatico della bozza
+  useEffect(() => {
+    if (hasUnsavedChanges) {
+      localStorage.setItem('modalNewDraft', JSON.stringify(formData));
+    }
+  }, [formData, hasUnsavedChanges]);
 
-  const renderLoading = () => (
-    <div className="text-center">
-      <CSpinner color="primary" />
-    </div>
-  );
+  // Mutation per la creazione del task con steps
+  const createTaskMutation = useMutation({
+    mutationFn: TasksService.createTaskWithSteps,
+    onMutate: () => {
+      setCreationState(CREATION_STATES.CREATING_TASK);
+      setProgress(25);
+    },
+    onSuccess: (data) => {
+      setProgress(100);
+      setCreationState(CREATION_STATES.COMPLETED);
+      queryClient.invalidateQueries([QUERY_KEYS.TASKS]);
 
+      showToast({
+        message: `Task creato con successo! Create ${data.stepCount} fasi dal template`,
+        type: 'success'
+      });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(false);
+      // Pulizia
+      localStorage.removeItem('modalNewDraft');
+      setHasUnsavedChanges(false);
 
-    // Format the delivery date for the database
-    const formattedDate = deliveryDate ? deliveryDate.toISOString().split('T')[0] : null;
+      // Chiusura ritardata per mostrare il completamento
+      setTimeout(() => {
+        onClose();
+        resetForm();
+      }, 1500);
+    },
+    onError: (error) => {
+      setCreationState(CREATION_STATES.ERROR);
+      setError(error);
 
-    const sendData = {
-      patient,
-      workid,
-      deliveryDate: formattedDate,
-      completed: false,
-    };
+      showToast({
+        message: `Errore nella creazione: ${error.message}`,
+        type: 'error'
+      });
+    }
+  });
+
+  // Verifica template quando viene selezionato un work
+  const verifyTemplate = useCallback(async (workId) => {
+    if (!workId) return;
 
     try {
-      const response = await axios.post('http://localhost:5000/api/tasks', sendData);
-      if (response.status === 201) {
-        setSuccess(true);
-        refreshData(); // Aggiorna la lista
-        resetForm();
-        onClose();
+      setCreationState(CREATION_STATES.VALIDATING);
+      const info = await TasksService.verifyTemplateAvailability(workId);
+      setTemplateInfo(info);
+      setProgress(10);
+
+      if (!info.hasTemplate) {
+        showToast({
+          message: 'Questo tipo di lavoro non ha fasi template definite',
+          type: 'warning'
+        });
       }
     } catch (error) {
-      console.error("Errore durante l'invio dei dati:", error);
-      setSuccess(false);
-      setError("Errore durante l'invio dei dati. Verifica i dati e riprova.");
+      console.error('Template verification error:', error);
+      showToast({
+        message: 'Impossibile verificare il template',
+        type: 'error'
+      });
+    } finally {
+      setCreationState(CREATION_STATES.IDLE);
+    }
+  }, [showToast]);
+
+  // Handler per la selezione del work
+  const handleWorkSelect = (workId) => {
+    setFormData(prev => ({ ...prev, workid: workId }));
+    setHasUnsavedChanges(true);
+    verifyTemplate(workId);
+  };
+
+  // Handler per il cambio dei campi del form
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setHasUnsavedChanges(true);
+  };
+
+  // Reset del form
+  const resetForm = () => {
+    setFormData({
+      workid: '',
+      patient: '',
+      deliveryDate: null
+    });
+    setCreationState(CREATION_STATES.IDLE);
+    setProgress(0);
+    setError(null);
+    setHasUnsavedChanges(false);
+    setTemplateInfo(null);
+  };
+
+  // Validazione form
+  const validateForm = () => {
+    const errors = [];
+    if (!formData.workid) errors.push('Seleziona un tipo di lavoro');
+    if (!formData.patient) errors.push('Inserisci il paziente');
+    if (!formData.deliveryDate) errors.push('Seleziona una data di consegna');
+    return errors;
+  };
+
+  // Handler per il submit
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      setError({ message: validationErrors.join(', ') });
+      showToast({
+        message: validationErrors.join(', '),
+        type: 'error'
+      });
+      return;
+    }
+
+    if (!templateInfo?.hasTemplate) {
+      const confirm = await showConfirmDialog({
+        title: 'Attenzione',
+        message: 'Questo tipo di lavoro non ha fasi template. Vuoi continuare comunque?',
+        confirmText: 'Continua',
+        cancelText: 'Annulla'
+      });
+
+      if (!confirm) return;
+    }
+
+    createTaskMutation.mutate(formData);
+  };
+
+  // Handler per la chiusura
+  const handleClose = async () => {
+    if (hasUnsavedChanges && creationState !== CREATION_STATES.COMPLETED) {
+      const confirm = await showConfirmDialog({
+        title: 'Modifiche non salvate',
+        message: 'Ci sono modifiche non salvate. Vuoi davvero chiudere?',
+        confirmText: 'Chiudi',
+        cancelText: 'Annulla'
+      });
+
+      if (!confirm) return;
+    }
+
+    resetForm();
+    onClose();
+  };
+
+  // Render degli stati di creazione
+  const renderCreationStatus = () => {
+    switch (creationState) {
+      case CREATION_STATES.VALIDATING:
+        return <div className="text-muted">Verifica template in corso...</div>;
+      case CREATION_STATES.CREATING_TASK:
+        return <div className="text-muted">Creazione task in corso...</div>;
+      case CREATION_STATES.CREATING_STEPS:
+        return <div className="text-muted">Creazione fasi in corso...</div>;
+      case CREATION_STATES.COMPLETED:
+        return <div className="text-success">Creazione completata!</div>;
+      case CREATION_STATES.ERROR:
+        return <CAlert color="danger">{error?.message}</CAlert>;
+      default:
+        return null;
     }
   };
 
-  const fetchData = () => {
-    setLoading(true);
-    setError(null);
-    axios
-      .get('http://localhost:5000/api/aggregate/tasks', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      })
-      .then((response) => {
-        setTasks(response.data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error('Errore nel recupero delle lavorazioni:', error);
-        setError('Errore nel recupero dei dati o connessione al server assente.');
-        setLoading(false);
-      });
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleWorkSelect = (id) => {
-    setWorkid(id);
-  };
-
   return (
-    <CModal visible={visible} onClose={onClose}>
-      <CModalHeader>
+    <CModal
+      visible={visible}
+      onClose={handleClose}
+      backdrop="static"
+      keyboard={!createTaskMutation.isLoading}
+    >
+      <CModalHeader closeButton={!createTaskMutation.isLoading}>
         <h5>Nuovo task</h5>
       </CModalHeader>
+
       <CModalBody>
         <CForm onSubmit={handleSubmit}>
-          <CFormLabel>Lavorazione</CFormLabel>
-          <WorkSelect onSelect={handleWorkSelect} selectedValue={workid} required />
-          <CFormLabel>Paziente</CFormLabel>
-          <CFormInput
-            type="text"
-            value={patient}
-            onChange={(e) => setPatient(e.target.value)}
-            placeholder="Inserisci il paziente"
-            required
-          />
-          <CFormLabel>Data Consegna</CFormLabel>
-          <DatePicker
-            selected={deliveryDate}
-            onChange={(date) => setDeliveryDate(date)}
-            dateFormat="yyyy-MM-dd"
-            className="form-control" // Aggiungi una classe per lo stile
-            placeholderText="Seleziona la data di consegna"
-            required
-          />
+          <div className="mb-3">
+            <CFormLabel>Lavorazione</CFormLabel>
+            <WorkSelect
+              onSelect={handleWorkSelect}
+              selectedValue={formData.workid}
+              disabled={createTaskMutation.isLoading}
+              required
+            />
+            {templateInfo && (
+              <small className="text-muted">
+                {templateInfo.hasTemplate
+                  ? `Template disponibile con ${templateInfo.templateCount} fasi`
+                  : 'Nessun template disponibile'}
+              </small>
+            )}
+          </div>
 
-          {error && (
-            renderError(error)
+          <div className="mb-3">
+            <CFormLabel>Paziente</CFormLabel>
+            <CFormInput
+              type="text"
+              value={formData.patient}
+              onChange={(e) => handleInputChange('patient', e.target.value)}
+              disabled={createTaskMutation.isLoading}
+              placeholder="Inserisci il paziente"
+              required
+            />
+          </div>
+
+          <div className="mb-3">
+            <CFormLabel>Data Consegna</CFormLabel>
+            <DatePicker
+              selected={formData.deliveryDate}
+              onChange={(date) => handleInputChange('deliveryDate', date)}
+              dateFormat="yyyy-MM-dd"
+              className="form-control"
+              placeholderText="Seleziona la data di consegna"
+              disabled={createTaskMutation.isLoading}
+              required
+            />
+          </div>
+
+          {progress > 0 && (
+            <CProgress className="mb-3">
+              <CProgressBar
+                value={progress}
+                color={creationState === CREATION_STATES.ERROR ? 'danger' : 'primary'}
+              />
+            </CProgress>
           )}
-          {success && (
-            renderSuccess()
-          )}
-          <CModalFooter>
-            <CButton color="secondary" onClick={onClose}>
-              <CIcon icon={icon.cilHistory} className="me-2" />
-            </CButton>
-            <CButton type="submit" color="primary">
-              <CIcon icon={icon.cilSave} className="me-2" />
-            </CButton>
-          </CModalFooter>
+
+          {renderCreationStatus()}
         </CForm>
       </CModalBody>
+
+      <CModalFooter>
+        <CButton
+          color="secondary"
+          onClick={handleClose}
+          disabled={createTaskMutation.isLoading}
+        >
+          <CIcon icon={icon.cilX} className="me-2" />
+          Annulla
+        </CButton>
+
+        <CButton
+          color="primary"
+          onClick={handleSubmit}
+          disabled={createTaskMutation.isLoading}
+        >
+          {createTaskMutation.isLoading ? (
+            <>
+              <CSpinner size="sm" className="me-2" />
+              Creazione in corso...
+            </>
+          ) : (
+            <>
+              <CIcon icon={icon.cilSave} className="me-2" />
+              Salva
+            </>
+          )}
+        </CButton>
+      </CModalFooter>
+
+      <ConfirmDialog />
     </CModal>
   );
 };
 
-export default ModalTask;
+export default ModalNew;
