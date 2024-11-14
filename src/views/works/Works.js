@@ -39,7 +39,7 @@ import { QUERY_KEYS } from '../../constants/queryKeys';
 const WorksView = () => {
   const queryClient = useQueryClient();
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
-  const { showToast } = useToast();
+  const { showError, showSuccess, showInfo } = useToast();
 
   // Stati locali
   const [selectedWork, setSelectedWork] = useState(null);
@@ -105,13 +105,28 @@ const WorksView = () => {
     }
   });
 
+
   const reorderStepsMutation = useMutation({
     mutationFn: WorksService.reorderSteps,
-    onSuccess: () => {
+    onSuccess: (data) => {
+
+      // Invalida la query per ricaricare i dati aggiornati
       queryClient.invalidateQueries([QUERY_KEYS.STEPSTEMP, activeWorkId]);
-      showToast({
+
+      // Mostra il messaggio di successo
+      showSuccess({
         message: 'Ordine fasi aggiornato',
         type: 'success'
+      });
+
+      // Aggiorna lo stato locale con i dati aggiornati (usando i passi riordinati)
+      setSteps(data.steps);  // Utilizza i passi restituiti dalla risposta della mutazione
+    },
+    onError: (error) => {
+      // Gestione degli errori
+      showError({
+        message: error.message || 'Errore durante l\'aggiornamento degli steps',
+        type: 'error'
       });
     }
   });
@@ -206,7 +221,35 @@ const WorksView = () => {
     input.click();
   };
 
-  const handleDragEnd = async (result) => {
+  const handleDragEnd2 = (result) => {
+    if (!result.destination) return;
+
+    const { source, destination } = result;
+
+    // Crea una copia dell'array `steps`
+    const reorderedSteps = Array.from(steps);
+
+    // Rimuove l'elemento dalla posizione `source.index`
+    const [movedStep] = reorderedSteps.splice(source.index, 1);
+
+    // Inserisce l'elemento nella nuova posizione `destination.index`
+    reorderedSteps.splice(destination.index, 0, movedStep);
+
+    // Aggiorna gli indici di `order` degli elementi
+    const updatedSteps = reorderedSteps.map((step, index) => ({
+      ...step,
+      order: index + 1, // Aggiorna l'ordine in base alla nuova posizione
+    }));
+
+    // Aggiorna lo stato di steps con il nuovo array riordinato
+    setSteps(updatedSteps);
+
+    // Se desiderato, puoi inviare l'array riordinato al server
+    // await updateStepsOrderInServer(updatedSteps);
+  };
+
+  const handleDragEnd1 = async (result) => {
+
     if (!result.destination) return;
 
     const sourceIndex = result.source.index;
@@ -236,6 +279,71 @@ const WorksView = () => {
       });
     }
   };
+
+  const handleDragEnd3 = async (result) => {
+    if (!result.destination) return;
+    console.log('activeworkid', activeWorkId);
+    const sourceIndex = result.source.index;
+    const destIndex = result.destination.index;
+
+    if (sourceIndex === destIndex) return;
+
+    const reorderedSteps = Array.from(steps);
+    const [removed] = reorderedSteps.splice(sourceIndex, 1);
+    reorderedSteps.splice(destIndex, 0, removed);
+
+    // Aggiorna gli ordini
+    const updatedSteps = reorderedSteps.map((step, index) => ({
+      ...step,
+      order: index + 1
+    }));
+
+    // Chiamata alla mutazione
+    try {
+      await reorderStepsMutation.mutateAsync({
+        workId: activeWorkId,
+        steps: updatedSteps
+      });
+    } catch (error) {
+      showError({
+        message: `Errore durante il riordino: ${error.message}`,
+        type: 'error'
+      });
+    }
+  };
+
+  const handleDragEnd = async (result) => {
+    if (!result.destination) return;
+
+    const sourceIndex = result.source.index;
+    const destIndex = result.destination.index;
+
+    if (sourceIndex === destIndex) return;
+
+    const reorderedSteps = Array.from(steps);
+    const [removed] = reorderedSteps.splice(sourceIndex, 1); // Rimuoviamo l'elemento
+    reorderedSteps.splice(destIndex, 0, removed); // Inseriamo nella nuova posizione
+
+    // Ora aggiorniamo l'ordine per tutti i passi
+    const updatedSteps = reorderedSteps.map((step, index) => ({
+      ...step,
+      order: index + 1  // Impostiamo l'ordine (1-based)
+    }));
+
+    // Inviamo la richiesta per riordinare tutti i passi
+    try {
+      await reorderStepsMutation.mutateAsync({
+        workId: activeWorkId,
+        steps: updatedSteps
+      });
+    } catch (error) {
+      showToast({
+        message: `Errore durante il riordino: ${error.message}`,
+        type: 'error'
+      });
+    }
+  };
+
 
   const handleSearch = useCallback((value) => {
     setSearchTerm(value);
@@ -301,6 +409,8 @@ const WorksView = () => {
     const brightness = ((r * 299) + (g * 587) + (b * 114)) / 1000;
     return brightness > 155;
   };
+
+
   const renderStepsTable = (workId) => (
     <CTableRow>
       <CTableDataCell colSpan="5">
@@ -317,9 +427,9 @@ const WorksView = () => {
                     <CTableHead>
                       <CTableRow>
                         <CTableHeaderCell style={{ width: '50px' }}>#</CTableHeaderCell>
+                        <CTableHeaderCell className="text-center">Ordine</CTableHeaderCell>
                         <CTableHeaderCell>Nome fase</CTableHeaderCell>
                         <CTableHeaderCell>Operatore</CTableHeaderCell>
-                        <CTableHeaderCell className="text-center">Ordine</CTableHeaderCell>
                         <CTableHeaderCell className="text-end">Azioni</CTableHeaderCell>
                       </CTableRow>
                     </CTableHead>
@@ -337,12 +447,12 @@ const WorksView = () => {
                               {...provided.dragHandleProps}
                               className={snapshot.isDragging ? 'dragging' : ''}
                             >
-                              <CTableDataCell>{step.id}</CTableDataCell>
-                              <CTableDataCell>{step.name}</CTableDataCell>
-                              <CTableDataCell>{step.user?.name}</CTableDataCell>
-                              <CTableDataCell className="text-center">
+                              <CTableDataCell style={{ width: '50px', color: 'lightgray' }}>{step.id}</CTableDataCell>
+                              <CTableDataCell style={{ width: '50px' }} className="text-center">
                                 {step.order}
                               </CTableDataCell>
+                              <CTableDataCell>{step.name}</CTableDataCell>
+                              <CTableDataCell>{step.user?.name}</CTableDataCell>
                               <CTableDataCell className="text-end">
                                 <CButtonGroup size="sm">
                                   <CButton

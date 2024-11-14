@@ -1,5 +1,6 @@
 const express = require('express');
 const Work = require('../models/Work');
+const StepTemp = require('../models/StepTemp');
 const authenticateToken = require('../middleware/authMiddleware'); // Importa il middleware
 const router = express.Router();
 
@@ -97,5 +98,64 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Errore durante l\'eliminazione del record' });
   }
 });
+
+// Endpoint per riordinare i passaggi di un Work
+//router.patch('/:workId/reorder-steps', async (req, res) => {
+//  const { workId } = req.params;
+//  const { stepId, newPosition } = req.body; // `stepId` da spostare, `newPosition` è l'indice di destinazione (0-based)
+
+//  try {
+//    // Recupera tutti i passaggi ordinati per la sequenza corrente
+//    const steps = await Step.findAll({
+//      where: { workId },
+//      order: [['order', 'ASC']],
+//    });
+
+//    // Trova l'indice del passaggio che si vuole spostare
+//    const stepIndex = steps.findIndex(step => step.id === stepId);
+//    if (stepIndex === -1) {
+//      return res.status(404).json({ error: 'Step non trovato nel work specificato' });
+//    }
+
+//    // Rimuove il passaggio dalla sua posizione originale
+//    const [stepToMove] = steps.splice(stepIndex, 1);
+
+//    // Inserisce il passaggio nella nuova posizione
+//    steps.splice(newPosition, 0, stepToMove);
+
+//    // Aggiorna l'ordine di tutti i passaggi
+//    await Promise.all(
+//      steps.map((step, index) =>
+//        Step.update({ order: index + 1 }, { where: { id: step.id } })
+//      )
+//    );
+
+//    res.json({ success: true, message: 'Steps riordinati con successo' });
+//  } catch (error) {
+//    console.error(error);
+//    res.status(500).json({ error: 'Errore durante il riordino dei passaggi' });
+//  }
+//});
+router.patch('/:workId/reorder-steps', async (req, res) => {
+  const { workId } = req.params;
+  const { steps } = req.body; // Passiamo l'intero array di passi con i nuovi ordini
+
+  try {
+    // Verifica che ogni passo nel body abbia un `order` valido
+    const promises = steps.map((step, index) =>
+      StepTemp.update({ order: step.order }, { where: { id: step.id, workId } })
+    );
+
+    // Attende che tutti gli aggiornamenti siano completati
+    await Promise.all(promises);
+
+    res.json({ success: true, message: 'Steps riordinati con successo' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Errore durante il riordino dei passaggi' });
+  }
+});
+
+
 
 module.exports = router;

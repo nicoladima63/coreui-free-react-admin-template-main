@@ -298,12 +298,22 @@ export const WorksService = {
     }
   },
 
-  reorderSteps: async (workId, steps) => {
+  treorderSteps2: async (data) => {
+    // Estrai workId e steps dall'oggetto data
+    const { workId, steps } = data;
+
+    // Log per verificare i dati
+    console.log("api.js workId:", workId);
+    console.log("api.js steps:", steps);
+
     try {
+      // Fai la chiamata PATCH passando workId e steps
       const response = await apiClient.patch(`/works/${workId}/reorder-steps`, { steps });
+
+      // Assicurati che la risposta contenga i passi aggiornati
       return {
         success: true,
-        data: response.steps,
+        data: response.data.steps,  // Usa response.data.steps se il server lo restituisce così
         message: 'Steps reordered successfully'
       };
     } catch (error) {
@@ -313,6 +323,26 @@ export const WorksService = {
       };
     }
   },
+  reorderSteps: async (data) => {
+    try {
+      // Invia tutto l'array di passi con il nuovo ordine
+      const response = await apiClient.patch(`/works/${data.workId}/reorder-steps`, {
+        steps: data.steps
+      });
+
+      return {
+        success: true,
+        message: 'Steps reordered successfully'
+      };
+    } catch (error) {
+      console.error("Error:", error);
+      throw {
+        message: error.response?.data?.error || 'Failed to reorder steps',
+        code: error.response?.status || 500
+      };
+    }
+  },
+
 
   // Metodo helper per verificare lo stato di un work
   verifyWorkStatus: async (workId) => {

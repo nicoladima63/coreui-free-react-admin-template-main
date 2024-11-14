@@ -39,7 +39,7 @@ const WORK_STATES = {
 const ModalWork = ({ visible, onClose, selectedWork = null }) => {
   const queryClient = useQueryClient();
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
-  const { showToast } = useToast();
+  const { showSuccess, showError, showInfo } = useToast();
 
   // Stati del form
   const [formData, setFormData] = useState({
@@ -87,7 +87,7 @@ const ModalWork = ({ visible, onClose, selectedWork = null }) => {
         const parsedDraft = JSON.parse(draft);
         setFormData(parsedDraft);
         setHasUnsavedChanges(true);
-        showToast({
+        showInfo({
           message: 'Bozza precedente recuperata',
           type: 'info'
         });
@@ -113,7 +113,7 @@ const ModalWork = ({ visible, onClose, selectedWork = null }) => {
       setWorkState(WORK_STATES.COMPLETED);
       queryClient.invalidateQueries([QUERY_KEYS.WORKS]);
 
-      showToast({
+      showSuccess({
         message: selectedWork
           ? 'Lavorazione aggiornata con successo'
           : 'Nuova lavorazione creata con successo',
@@ -132,7 +132,7 @@ const ModalWork = ({ visible, onClose, selectedWork = null }) => {
     },
     onError: (error) => {
       setWorkState(WORK_STATES.ERROR);
-      showToast({
+      showError({
         message: `Errore: ${error.message}`,
         type: 'error'
       });
@@ -190,7 +190,7 @@ const ModalWork = ({ visible, onClose, selectedWork = null }) => {
     e.preventDefault();
 
     if (!validateForm()) {
-      showToast({
+      showError({
         message: 'Correggi gli errori nel form prima di procedere',
         type: 'error'
       });
