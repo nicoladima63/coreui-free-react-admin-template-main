@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState,useMemo,useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../../hooks/useToast';
 import { useWebSocket } from '../../context/WebSocketContext';
 
 import {
@@ -14,7 +15,7 @@ import {
   CAlert,
   CButton,
   CButtonGroup,
-  CProgress, CProgressBar
+  CProgress, CProgressBar, CTooltip
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
@@ -28,129 +29,142 @@ import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { QUERY_KEYS } from '../../constants/queryKeys';
 import { API_ERROR_MESSAGES } from '../../constants/errorMessages';
 
+// Dashboard.js
 const Dashboard = () => {
   const queryClient = useQueryClient();
+  const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
+  const { showSuccess, showError } = useToast();
   const auth = useSelector(state => state.auth);
+  const { isConnected } = useWebSocket();
 
   const [selectedFilter, setSelectedFilter] = useState('incomplete');
-  const [modalAddVisible, setModalAddVisible] = useState(false);
-  const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
-  const { isConnected } = useWebSocket();
-  const [currentUser, setCurrentUser] = useState({});
-  const [isAutehenticated, setIsAuthenticated] = useState(false);
+  const [modalState, setModalState] = useState({
+    addVisible: false,
+    stepsVisible: false,
+    selectedTask: null
+  });
 
-  useEffect(() => {
-    //console.log('Auth state:', auth);
-    //console.log('LocalStorage user:', localStorage.getItem('user'));
-    //console.log('LocalStorage token:', localStorage.getItem('token'));
-    setCurrentUser(auth.user);
-    setIsAuthenticated(auth.isAuthenticated);
-  }, [auth]);
-
-  // Query per ottenere i task della dashboard
+  // Query principale
   const {
     data: tasks = [],
     isLoading,
     error,
+    isFetching
   } = useQuery({
     queryKey: [QUERY_KEYS.TASKS],
     queryFn: TasksService.getTasksForDashboard,
+    staleTime: 30000, // 30 secondi
+    cacheTime: 5 * 60 * 1000, // 5 minuti
   });
 
-  // Mutation per creare un nuovo task
-  const createTaskMutation = useMutation({
-    mutationFn: TasksService.createTask,
-    onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.TASKS]);
-      setModalAddVisible(false);
-    },
-    onError: (error) => {
-      console.error('Errore durante la creazione del task:', error);
-    },
-  });
-
-
-  // Filtra i task in base al filtro selezionato
-  const getFilteredTasks = () => {
+  // Filtraggio tasks
+  const filteredTasks = useMemo(() => {
     switch (selectedFilter) {
       case 'completed':
-        return tasks.filter((task) => task.completed === true);
+        return tasks.filter(task => task.completed);
       case 'incomplete':
-        return tasks.filter((task) => task.completed === false);
+        return tasks.filter(task => !task.completed);
       default:
         return tasks;
     }
-  };
+  }, [tasks, selectedFilter]);
 
-  const handleFilterChange = (filter) => {
-    setSelectedFilter(filter);
-  };
+  // Mutation per nuovo task
+  const createTaskMutation = useMutation({
+    mutationFn: TasksService.createTaskWithSteps,
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.TASKS]);
+      showSuccess('Task creato con successo');
+      setModalState(prev => ({ ...prev, addVisible: false }));
+    },
+    onError: (error) => {
+      showError(error);
+    }
+  });
 
-  const handleSaveTask = async (taskData) => {
-    await createTaskMutation.mutateAsync(taskData);
-  };
+  const handleOpenSteps = useCallback((task) => {
+    setModalState(prev => ({
+      ...prev,
+      stepsVisible: true,
+      selectedTask: task
+    }));
+  }, []);
 
-  const renderError = (error) => (
+  const handleCloseModal = useCallback((modalType) => {
+    setModalState(prev => ({
+      ...prev,
+      [modalType]: false,
+      selectedTask: null
+    }));
+  }, []);
+
+  // Renderers
+  const renderError = useCallback((error) => (
     <CAlert color="danger" className="text-center">
-      {error?.message || API_ERROR_MESSAGES.GENERIC_ERROR}
+      {error?.message || 'Si è verificato un errore'}
     </CAlert>
-  );
+  ), []);
 
-  const renderLoading = () => (
-    <div className="text-center">
+  const renderLoading = useCallback(() => (
+    <div className="text-center p-3">
       <CSpinner color="primary" />
     </div>
-  );
+  ), []);
 
-  const renderEmptyState = () => (
-    <CAlert color="warning" className="text-center">
-      Nessuna fase disponibile.
+  const renderEmptyState = useCallback(() => (
+    <CAlert color="info" className="text-center">
+      Nessun task disponibile
     </CAlert>
-  );
-
-  const filteredTasks = getFilteredTasks();
+  ), []);
 
   return (
     <CRow>
+      {/* Sezione messaggi */}
       <CCol xs={12} xl={2}>
-        <CCard className="mb-4">
-          <CCardHeader>
-            <h4 className="mb-0">
-              <CBadge color={isConnected ? 'success' : 'danger'}> </CBadge>
-                Benvenuto {auth.user.name}</h4>
-          </CCardHeader>
-          <CCardBody>
-            <p>Queste le cose da fare.</p>
-              {currentUser && <MessagesSection userId={auth.user.id} />}
-          </CCardBody>
-        </CCard>
+        <MessagesSection userId={auth.user.id} />
       </CCol>
 
+      {/* Sezione principale */}
       <CCol xs={12} lg={10}>
         <CCard className="mb-4">
           <CCardHeader>
             <div className="d-flex justify-content-between align-items-center">
               <h4 className="mb-0">Flussi di lavoro</h4>
-              <FilterGroupButton
-                selectedFilter={selectedFilter}
-                onFilterChange={handleFilterChange}
-              />
-              <CButtonGroup>
-                <CButton
-                  color="primary"
-                  size="sm"
-                  onClick={() => setModalAddVisible(true)}
-                >
-                  <CIcon icon={icon.cilPlus} />
-                </CButton>
-                <CButton
-                  size="sm"
-                  color="info"
-                  onClick={() => queryClient.invalidateQueries([QUERY_KEYS.TASKS])}
-                >
-                  <CIcon icon={icon.cilHistory} size="sm" />
-                </CButton>
-              </CButtonGroup>
+
+              <div className="d-flex gap-2 align-items-center">
+                <FilterGroupButton
+                  selectedFilter={selectedFilter}
+                  onFilterChange={setSelectedFilter}
+                  disabled={isLoading || isFetching}
+                />
+
+                <CButtonGroup>
+                  <CTooltip content="Nuovo task">
+                    <CButton
+                      color="primary"
+                      size="sm"
+                      onClick={() => setModalState(prev => ({ ...prev, addVisible: true }))}
+                      disabled={isLoading || isFetching}
+                    >
+                      <CIcon icon={icon.cilPlus} />
+                    </CButton>
+                  </CTooltip>
+
+                  <CTooltip content="Aggiorna">
+                    <CButton
+                      color="info"
+                      size="sm"
+                      onClick={() => queryClient.invalidateQueries([QUERY_KEYS.TASKS])}
+                      disabled={isFetching}
+                    >
+                      <CIcon
+                        icon={isFetching ? icon.cilReload : icon.cilSync}
+                        className={isFetching ? 'spinner' : ''}
+                      />
+                    </CButton>
+                  </CTooltip>
+                </CButtonGroup>
+              </div>
             </div>
           </CCardHeader>
 
@@ -159,12 +173,16 @@ const Dashboard = () => {
               renderLoading()
             ) : error ? (
               renderError(error)
-            ) : tasks.length === 0 ? (
+            ) : filteredTasks.length === 0 ? (
               renderEmptyState()
             ) : (
               <CRow xs={{ gutter: 4 }}>
                 {filteredTasks.map((task) => (
-                  <TaskWidget key={task.id} task={task} />
+                  <TaskWidget
+                    key={task.id}
+                    task={task}
+                    onOpenSteps={handleOpenSteps}
+                  />
                 ))}
               </CRow>
             )}
@@ -172,116 +190,151 @@ const Dashboard = () => {
         </CCard>
       </CCol>
 
-      {modalAddVisible && (
-        <ModalNew
-          visible={modalAddVisible}
-          onClose={() => setModalAddVisible(false)}
-          onSave={handleSaveTask}
-        />
-      )}
+      {/* Modals */}
+      <ModalNew
+        visible={modalState.addVisible}
+        onClose={() => handleCloseModal('addVisible')}
+        onSave={createTaskMutation.mutateAsync}
+      />
+
+      <ModalSteps
+        visible={modalState.stepsVisible}
+        onClose={() => handleCloseModal('stepsVisible')}
+        task={modalState.selectedTask}
+      />
+
       <ConfirmDialog />
     </CRow>
   );
 };
 
-const TaskWidget = ({ task }) => {
+
+// components/TaskWidget.js
+const TaskWidget = ({ task, onOpenSteps }) => {
   const queryClient = useQueryClient();
-  const [isStepsModalVisible, setIsStepsModalVisible] = useState(false);
-
-  // Ordina le fasi per order e calcola l'ultima fase completata
-  const sortedSteps = [...task.steps].sort((a, b) => a.order - b.order);
-  const completedSteps = task.steps?.filter((step) => step.completed).length || 0;
-  const totalSteps = task.steps?.length || 0;
-
-  // Trova l'ultimo step completato per mostrare il suo order nella progress bar
-  const lastCompletedStep = sortedSteps
-    .filter(step => step.completed)
-    .sort((a, b) => b.order - a.order)[0]?.order || 0;
-
-  // Calcola la percentuale di completamento per la progress bar
-  const completionPercentage = (lastCompletedStep / totalSteps) * 100;
+  const { showError } = useToast();
 
   const updateStepMutation = useMutation({
-    mutationFn: ({ stepId, completed }) =>
-      StepsService.updateStepStatus(stepId, completed),
+    mutationFn: ({ stepId, completed }) => StepsService.updateStepStatus(stepId, completed),
     onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.TASKS]);
     },
     onError: (error) => {
-      console.error('Errore durante l\'aggiornamento della fase:', error);
-    },
+      showError(error);
+    }
   });
 
-  const handleToggleStep = async (stepId, completed) => {
-    await updateStepMutation.mutateAsync({ stepId, completed });
-  };
+  // Ordinamento e calcoli
+  const sortedSteps = useMemo(() =>
+    [...task.steps].sort((a, b) => a.order - b.order)
+    , [task.steps]);
 
-  const formatDeliveryDate = (dateStr) => {
-    const date = new Date(dateStr);
-    const options = { weekday: 'long', month: 'long', day: 'numeric' };
-    return date.toLocaleDateString('it-IT', options);
-  };
+  const { completedSteps, totalSteps, lastCompletedStep, completionPercentage } = useMemo(() => {
+    const completed = task.steps?.filter(step => step.completed).length || 0;
+    const total = task.steps?.length || 0;
+    const lastCompleted = sortedSteps
+      .filter(step => step.completed)
+      .sort((a, b) => b.order - a.order)[0]?.order || 0;
+    const percentage = (lastCompleted / total) * 100;
 
-  // Calcola il colore della progress bar in base alla percentuale
-  const getProgressColor = () => {
+    return {
+      completedSteps: completed,
+      totalSteps: total,
+      lastCompletedStep: lastCompleted,
+      completionPercentage: percentage
+    };
+  }, [task.steps, sortedSteps]);
+
+  const getProgressColor = useCallback(() => {
     if (completionPercentage === 100) return 'success';
     if (completionPercentage > 66) return 'info';
     if (completionPercentage > 33) return 'warning';
     return 'danger';
-  };
+  }, [completionPercentage]);
+
+  const formatDeliveryDate = useCallback((dateStr) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('it-IT', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric'
+    });
+  }, []);
 
   return (
-    <>
-      <CCol xs={12} sm={6} lg={3} xl={4} xxl={2}>
-        <CCard className="text-center">
-          <CCardHeader style={{ backgroundColor: task.work.category.color }}>
-            <div className="d-flex justify-content-between align-items-center text-white bold">
-              <h6 className="mb-0">{task.work.name}</h6>
+    <CCol xs={12} sm={6} lg={3} xl={4} xxl={2}>
+      <CCard
+        className="text-center h-100 d-flex flex-column"
+        style={{ transition: 'all 0.3s ease' }}
+      >
+        <CCardHeader
+          style={{
+            backgroundColor: task.work.category.color,
+            borderBottom: 'none'
+          }}
+        >
+          <div className="d-flex justify-content-between align-items-center text-white">
+            <CTooltip content={task.work.name}>
+              <h6 className="mb-0 text-truncate">{task.work.name}</h6>
+            </CTooltip>
+          </div>
+        </CCardHeader>
+
+        <CCardBody className="d-flex flex-column">
+          <CCardTitle className="text-truncate">
+            <CTooltip content={`Paziente: ${task.patient}`}>
+              <span>Paz: {task.patient}</span>
+            </CTooltip>
+          </CCardTitle>
+
+          <CCardText className="text-muted mb-3">
+            Consegna per <br />
+            {formatDeliveryDate(task.deliveryDate)}
+          </CCardText>
+
+          <div className="mt-auto">
+            <div className="d-flex justify-content-between small text-muted mb-1">
+              <span>0</span>
+              <span>{totalSteps}</span>
             </div>
-          </CCardHeader>
-          <CCardBody>
-            <CCardTitle>Paz: {task.patient}</CCardTitle>
-            <CCardText>
-              Consegna per <br /> {formatDeliveryDate(task.deliveryDate)}
-            </CCardText>
-            <div className="mt-3">
-              <div className="d-flex justify-content-between small text-muted mb-1">
-                <span>0</span>
-                <span>{totalSteps}</span>
-              </div>
-              <CProgress className="mb-1">
-                <CProgressBar
-                  color={getProgressColor()}
-                  value={completionPercentage}
-                />
-              </CProgress>
-              <div className="text-center small">
-                Fase {lastCompletedStep} di {totalSteps}
-              </div>
+
+            <CProgress className="mb-1">
+              <CProgressBar
+                color={getProgressColor()}
+                value={completionPercentage}
+                animated={completionPercentage < 100}
+              />
+            </CProgress>
+
+            <div className="text-center small">
+              Fase {lastCompletedStep} di {totalSteps}
             </div>
-          </CCardBody>
-          <CCardFooter
-            className="text-body-secondary"
-            style={{ cursor: 'pointer' }}
-            onClick={() => setIsStepsModalVisible(true)}
-          >
-            <div>
-              {`${completedSteps} fasi completate`}
-              <br />
-              {`su ${totalSteps}`}
-              <CIcon icon={icon.cilArrowRight} className="float-end" width={16} />
-            </div>
-          </CCardFooter>
-        </CCard>
-      </CCol>
-      <ModalSteps
-        visible={isStepsModalVisible}
-        onClose={() => setIsStepsModalVisible(false)}
-        task={task}
-        onToggleStep={handleToggleStep}
-      />
-    </>
+          </div>
+        </CCardBody>
+
+        <CCardFooter
+          className="text-body-secondary"
+          onClick={() => onOpenSteps(task)}
+          style={{
+            cursor: 'pointer',
+            transition: 'background-color 0.3s ease'
+          }}
+          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8f9fa'}
+          onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
+        >
+          <div className="d-flex justify-content-between align-items-center">
+            <span>
+              {completedSteps} di {totalSteps} fasi completate
+            </span>
+            <CIcon
+              icon={icon.cilArrowRight}
+              className="ms-2"
+              style={{ transition: 'transform 0.3s ease' }}
+            />
+          </div>
+        </CCardFooter>
+      </CCard>
+    </CCol>
   );
 };
-
 export default Dashboard;

@@ -1,32 +1,23 @@
-import React, { useState, useCallback } from 'react';
+// PCsView.js
+import React, { useState,useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  CCard,
-  CCardBody,
-  CCardHeader,
-  CButton,
+  CBadge,
   CButtonGroup,
-  CCol,
-  CRow,
-  CTable,
-  CTableBody,
-  CTableHead,
-  CTableHeaderCell,
-  CTableRow,
-  CTableDataCell,
-  CSpinner,
-  CAlert,
-  CTooltip
+  CButton,
+  CTooltip,
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
-import ModalUser from './ModalUser';
-import { UsersService } from '../../services/api';
+
+import TableLayout from '../../components/TableLayout';
+import ModalPC from './ModalPc';
+import { PCService } from '../../services/api';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { useToast } from '../../hooks/useToast';
 import { QUERY_KEYS } from '../../constants/queryKeys';
-import TableLayout from '../../components/TableLayout';
-const UsersView = () => {
+
+const PCsView = () => {
   const queryClient = useQueryClient();
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
   const { showSuccess, showError } = useToast();
@@ -34,36 +25,32 @@ const UsersView = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filterData = useCallback((data, term) => {
-    if (!term.trim()) return data;
-
-    const searchLower = term.toLowerCase();
-    return data.filter(item => (
-      item.name?.toLowerCase().includes(searchLower) ||
-      item.email?.toLowerCase().includes(searchLower)
-    ));
-  }, []);
-  // Query per utenti
+  // Query per i PC con filtro di ricerca
   const {
-    data: users = [],
+    data: pcs = [],
     isLoading,
     error,
     isFetching
   } = useQuery({
-    queryKey: [QUERY_KEYS.USERS, searchTerm],
-    queryFn: () => UsersService.getUsers(searchTerm), // Assumendo che l'API supporti la ricerca
+    queryKey: [QUERY_KEYS.PCS, searchTerm],
+    queryFn: PCService.getPCs,
     select: useCallback((data) => {
-      // Se l'API non supporta la ricerca, filtriamo i risultati lato client
-      return filterData(data, searchTerm);
-    }, [searchTerm, filterData])
+      if (!searchTerm) return data;
+      const searchLower = searchTerm.toLowerCase();
+      return data.filter(pc =>
+        pc.name?.toLowerCase().includes(searchLower) ||
+        pc.location?.toLowerCase().includes(searchLower) ||
+        pc.ipAddress?.toLowerCase().includes(searchLower)
+      );
+    }, [searchTerm])
   });
 
-  // Mutation per creare un nuovo utente
+  // Mutations
   const createMutation = useMutation({
-    mutationFn: UsersService.createUser,
+    mutationFn: PCService.createPc,
     onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.USERS]);
-      showSuccess('Utente creato con successo');
+      queryClient.invalidateQueries([QUERY_KEYS.PCS]);
+      showSuccess('Postazione creata con successo');
       setIsModalVisible(false);
     },
     onError: (error) => {
@@ -71,12 +58,11 @@ const UsersView = () => {
     }
   });
 
-  // Mutation per aggiornare un utente
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }) => UsersService.updateUser(id, data),
+    mutationFn: ({ id, ...data }) => PCService.updatePc(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.USERS]);
-      showSuccess('Utente aggiornato con successo');
+      queryClient.invalidateQueries([QUERY_KEYS.PCS]);
+      showSuccess('Postazione aggiornata con successo');
       setIsModalVisible(false);
     },
     onError: (error) => {
@@ -84,12 +70,11 @@ const UsersView = () => {
     }
   });
 
-  // Mutation per eliminare un utente
   const deleteMutation = useMutation({
-    mutationFn: UsersService.deleteUser,
+    mutationFn: PCService.deletePc,
     onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.USERS]);
-      showSuccess('Utente eliminato con successo');
+      queryClient.invalidateQueries([QUERY_KEYS.PCS]);
+      showSuccess('Postazione eliminata con successo');
     },
     onError: (error) => {
       showError(error);
@@ -99,7 +84,7 @@ const UsersView = () => {
   const handleDelete = async (id) => {
     const confirmed = await showConfirmDialog({
       title: 'Conferma eliminazione',
-      message: 'Sei sicuro di voler eliminare questo utente? L\'operazione non può essere annullata.',
+      message: 'Sei sicuro di voler eliminare questa postazione? L\'operazione non può essere annullata.',
       confirmText: 'Elimina',
       cancelText: 'Annulla',
       confirmColor: 'danger'
@@ -110,24 +95,25 @@ const UsersView = () => {
     }
   };
 
-  const handleSave = async (userData) => {
+  const handleSave = async (pcData) => {
     try {
       if (selectedItem) {
-        await updateMutation.mutateAsync({ id: selectedItem.id, ...userData });
+        await updateMutation.mutateAsync({ id: selectedItem.id, ...pcData });
       } else {
-        await createMutation.mutateAsync(userData);
+        await createMutation.mutateAsync(pcData);
       }
     } catch (error) {
       console.error('Errore durante il salvataggio:', error);
-      throw error; // Rilanciamo l'errore per gestirlo nel componente modale
+      throw error;
     }
   };
 
-  const handleCloseModal = () => {
-    setIsModalVisible(false);
-    setSelectedItem(null);
+  const formatDate = (date) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleString();
   };
 
+  // Definizione delle colonne
   const columns = [
     {
       header: '#ID',
@@ -139,13 +125,26 @@ const UsersView = () => {
       render: (item) => <strong>{item.name}</strong>
     },
     {
-      header: 'Email',
-      field: 'email',
+      header: 'Ubicazione',
+      field: 'location',
     },
     {
-      header: 'Postazione',
-      field: 'pc_id',
-      render: (item) => item.pc?.name || '-'
+      header: 'IP',
+      field: 'ipAddress',
+    },
+    {
+      header: 'Stato',
+      field: 'status',
+      render: (item) => (
+        <CBadge color={item.status ? 'success' : 'danger'}>
+          {item.status ? 'Attivo' : 'Inattivo'}
+        </CBadge>
+      )
+    },
+    {
+      header: 'Ultimo Online',
+      field: 'lastOnline',
+      render: (item) => formatDate(item.lastOnline)
     },
     {
       header: 'Azioni',
@@ -184,33 +183,36 @@ const UsersView = () => {
   return (
     <>
       <TableLayout
-        title="Gestione Utenti"
+        title="Gestione Postazioni"
         isLoading={isLoading}
         error={error}
         isFetching={isFetching}
-        data={users}
+        data={pcs}
         columns={columns}
         onNew={() => {
           setSelectedItem(null);
           setIsModalVisible(true);
         }}
-        onRefresh={() => queryClient.invalidateQueries([QUERY_KEYS.USERS])}
-        isActionDisabled={createMutation.isLoading || updateMutation.isLoading || deleteMutation.isLoading}
+        onRefresh={() => queryClient.invalidateQueries([QUERY_KEYS.PCS])}
         showSearch={true}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        isActionDisabled={createMutation.isLoading || updateMutation.isLoading || deleteMutation.isLoading}
       />
 
-      <ModalUser
+      <ModalPC
         visible={isModalVisible}
-        onClose={handleCloseModal}
+        onClose={() => {
+          setIsModalVisible(false);
+          setSelectedItem(null);
+        }}
         onSave={handleSave}
-        selectedUser={selectedItem}
+        selectedPC={selectedItem}
       />
+
       <ConfirmDialog />
     </>
   );
-
 };
 
-export default UsersView;
+export default PCsView;

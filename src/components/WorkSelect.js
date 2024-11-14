@@ -1,13 +1,15 @@
 import React from 'react';
 import SelectComponent from './SelectComponent';
+import { API_BASE_URL } from '../constants/config';
 
-const WorkSelect = ({ onSelect, selectedValue }) => {
+const WorkSelect = ({ onSelect, selectedValue, disabled }) => {
   return (
     <SelectComponent
-      endpoint="http://localhost:5000/api/works"
-      label="un valore"
+      endpoint={`${API_BASE_URL}/works`}
+      label="lavorazione"
       onSelect={onSelect}
-      selectedValue={selectedValue} // Passiamo il valore selezionato
+      selectedValue={selectedValue}
+      disabled={disabled}
     />
   );
 };

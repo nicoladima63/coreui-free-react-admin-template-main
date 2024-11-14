@@ -27,7 +27,23 @@ import {
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 import ModalWork from './ModalWork';
 import ModalStep from './ModalStep';
@@ -35,6 +51,7 @@ import { WorksService, StepsTempService } from '../../services/api';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { useToast } from '../../hooks/useToast';
 import { QUERY_KEYS } from '../../constants/queryKeys';
+
 
 const WorksView = () => {
   const queryClient = useQueryClient();
@@ -92,46 +109,42 @@ const WorksView = () => {
     mutationFn: WorksService.deleteWork,
     onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.WORKS]);
-      showToast({
-        message: 'Lavorazione eliminata con successo',
-        type: 'success'
-      });
+      showSuccess('Lavorazione eliminata con successo');
     },
     onError: (error) => {
-      showToast({
-        message: `Errore durante l'eliminazione: ${error.message}`,
-        type: 'error'
-      });
+      showError(error);
     }
   });
 
+  const deleteStepMutation = useMutation({
+    mutationFn: StepsTempService.deleteStep,
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.STEPSTEMP, activeWorkId]);
+      showSuccess('Fase eliminata con successo');
+    },
+    onError: (error) => {
+      showError(error);
+    }
+  });
 
   const reorderStepsMutation = useMutation({
     mutationFn: WorksService.reorderSteps,
-    onSuccess: (data) => {
-
-      // Invalida la query per ricaricare i dati aggiornati
+    onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.STEPSTEMP, activeWorkId]);
-
-      // Mostra il messaggio di successo
-      showSuccess({
-        message: 'Ordine fasi aggiornato',
-        type: 'success'
-      });
-
-      // Aggiorna lo stato locale con i dati aggiornati (usando i passi riordinati)
-      setSteps(data.steps);  // Utilizza i passi restituiti dalla risposta della mutazione
+      showSuccess('Ordine fasi aggiornato');
     },
     onError: (error) => {
-      // Gestione degli errori
-      showError({
-        message: error.message || 'Errore durante l\'aggiornamento degli steps',
-        type: 'error'
-      });
+      showError(error);
     }
   });
 
-  // Handlers
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   const handleDeleteWork = async (id) => {
     const confirmed = await showConfirmDialog({
       title: 'Conferma eliminazione',
@@ -159,17 +172,11 @@ const WorksView = () => {
 
       if (newName) {
         const result = await WorksService.duplicateWork(work.id, newName);
-        showToast({
-          message: 'Lavorazione duplicata con successo',
-          type: 'success'
-        });
+        showSuccess('Lavorazione duplicata con successo');
         queryClient.invalidateQueries([QUERY_KEYS.WORKS]);
       }
     } catch (error) {
-      showToast({
-        message: `Errore durante la duplicazione: ${error.message}`,
-        type: 'error'
-      });
+      showError(error);
     }
   };
 
@@ -186,10 +193,7 @@ const WorksView = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      showToast({
-        message: `Errore durante l'esportazione: ${error.message}`,
-        type: 'error'
-      });
+      showError(error);
     }
   };
 
@@ -204,67 +208,57 @@ const WorksView = () => {
         reader.onload = async (event) => {
           const data = JSON.parse(event.target.result);
           await WorksService.importWork(data);
-          showToast({
-            message: 'Lavorazione importata con successo',
-            type: 'success'
-          });
+          showSuccess('Lavorazione importata con successo');
           queryClient.invalidateQueries([QUERY_KEYS.WORKS]);
         };
         reader.readAsText(file);
       } catch (error) {
-        showToast({
-          message: `Errore durante l'importazione: ${error.message}`,
-          type: 'error'
-        });
+        showError(error);
       }
     };
     input.click();
   };
 
-  const handleDragEnd2 = (result) => {
-    if (!result.destination) return;
+  const handleDeleteStep = async (stepId) => {
+    const confirmed = await showConfirmDialog({
+      title: 'Conferma eliminazione',
+      message: 'Sei sicuro di voler eliminare questa fase? L\'operazione non può essere annullata.',
+      confirmText: 'Elimina',
+      cancelText: 'Annulla',
+      confirmColor: 'danger'
+    });
 
-    const { source, destination } = result;
-
-    // Crea una copia dell'array `steps`
-    const reorderedSteps = Array.from(steps);
-
-    // Rimuove l'elemento dalla posizione `source.index`
-    const [movedStep] = reorderedSteps.splice(source.index, 1);
-
-    // Inserisce l'elemento nella nuova posizione `destination.index`
-    reorderedSteps.splice(destination.index, 0, movedStep);
-
-    // Aggiorna gli indici di `order` degli elementi
-    const updatedSteps = reorderedSteps.map((step, index) => ({
-      ...step,
-      order: index + 1, // Aggiorna l'ordine in base alla nuova posizione
-    }));
-
-    // Aggiorna lo stato di steps con il nuovo array riordinato
-    setSteps(updatedSteps);
-
-    // Se desiderato, puoi inviare l'array riordinato al server
-    // await updateStepsOrderInServer(updatedSteps);
+    if (confirmed) {
+      try {
+        await deleteStepMutation.mutateAsync(stepId);
+      } catch (error) {
+        // L'errore verrà gestito dal onError della mutation
+        console.error('Error deleting step:', error);
+      }
+    }
   };
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
 
-  const handleDragEnd1 = async (result) => {
+    if (!active || !over || active.id === over.id) return;
 
-    if (!result.destination) return;
+    const oldIndex = steps.findIndex(step => step.id === active.id);
+    const newIndex = steps.findIndex(step => step.id === over.id);
 
-    const sourceIndex = result.source.index;
-    const destIndex = result.destination.index;
+    // Prendiamo tutti gli step originali
+    const origSteps = [...steps];
 
-    if (sourceIndex === destIndex) return;
+    // Rimuoviamo lo step dalla vecchia posizione
+    const [movedStep] = origSteps.splice(oldIndex, 1);
 
-    const reorderedSteps = Array.from(steps);
-    const [removed] = reorderedSteps.splice(sourceIndex, 1);
-    reorderedSteps.splice(destIndex, 0, removed);
+    // Lo inseriamo nella nuova posizione
+    origSteps.splice(newIndex, 0, movedStep);
 
-    // Aggiorna gli ordini
-    const updatedSteps = reorderedSteps.map((step, index) => ({
-      ...step,
-      order: index + 1
+    // Ora ricalcoliamo gli order per mantenere la sequenza 1,2,3,4,5...
+    const updatedSteps = origSteps.map((step, index) => ({
+      id: step.id,
+      workid: activeWorkId,
+      order: index + 1  // Questo garantisce la sequenza 1,2,3,4,5
     }));
 
     try {
@@ -273,77 +267,9 @@ const WorksView = () => {
         steps: updatedSteps
       });
     } catch (error) {
-      showToast({
-        message: `Errore durante il riordino: ${error.message}`,
-        type: 'error'
-      });
+      console.error('Error reordering steps:', error);
     }
   };
-
-  const handleDragEnd3 = async (result) => {
-    if (!result.destination) return;
-    console.log('activeworkid', activeWorkId);
-    const sourceIndex = result.source.index;
-    const destIndex = result.destination.index;
-
-    if (sourceIndex === destIndex) return;
-
-    const reorderedSteps = Array.from(steps);
-    const [removed] = reorderedSteps.splice(sourceIndex, 1);
-    reorderedSteps.splice(destIndex, 0, removed);
-
-    // Aggiorna gli ordini
-    const updatedSteps = reorderedSteps.map((step, index) => ({
-      ...step,
-      order: index + 1
-    }));
-
-    // Chiamata alla mutazione
-    try {
-      await reorderStepsMutation.mutateAsync({
-        workId: activeWorkId,
-        steps: updatedSteps
-      });
-    } catch (error) {
-      showError({
-        message: `Errore durante il riordino: ${error.message}`,
-        type: 'error'
-      });
-    }
-  };
-
-  const handleDragEnd = async (result) => {
-    if (!result.destination) return;
-
-    const sourceIndex = result.source.index;
-    const destIndex = result.destination.index;
-
-    if (sourceIndex === destIndex) return;
-
-    const reorderedSteps = Array.from(steps);
-    const [removed] = reorderedSteps.splice(sourceIndex, 1); // Rimuoviamo l'elemento
-    reorderedSteps.splice(destIndex, 0, removed); // Inseriamo nella nuova posizione
-
-    // Ora aggiorniamo l'ordine per tutti i passi
-    const updatedSteps = reorderedSteps.map((step, index) => ({
-      ...step,
-      order: index + 1  // Impostiamo l'ordine (1-based)
-    }));
-
-    // Inviamo la richiesta per riordinare tutti i passi
-    try {
-      await reorderStepsMutation.mutateAsync({
-        workId: activeWorkId,
-        steps: updatedSteps
-      });
-    } catch (error) {
-      showToast({
-        message: `Errore durante il riordino: ${error.message}`,
-        type: 'error'
-      });
-    }
-  };
-
 
   const handleSearch = useCallback((value) => {
     setSearchTerm(value);
@@ -362,7 +288,6 @@ const WorksView = () => {
     setPage(1);
   }, []);
 
-  // Computed values
   const filteredWorks = useMemo(() => worksData.works, [worksData]);
 
   // Render helpers
@@ -410,7 +335,6 @@ const WorksView = () => {
     return brightness > 155;
   };
 
-
   const renderStepsTable = (workId) => (
     <CTableRow>
       <CTableDataCell colSpan="5">
@@ -418,71 +342,50 @@ const WorksView = () => {
           renderLoading()
         ) : stepsError ? (
           renderError(stepsError)
+        ) : !steps?.length ? (
+          <CAlert color="info">
+            Nessuna fase presente per questa lavorazione
+          </CAlert>
         ) : (
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId={`work-${workId}`}>
-              {(provided) => (
-                <div ref={provided.innerRef} {...provided.droppableProps}>
-                  <CTable small bordered borderColor="secondary">
-                    <CTableHead>
-                      <CTableRow>
-                        <CTableHeaderCell style={{ width: '50px' }}>#</CTableHeaderCell>
-                        <CTableHeaderCell className="text-center">Ordine</CTableHeaderCell>
-                        <CTableHeaderCell>Nome fase</CTableHeaderCell>
-                        <CTableHeaderCell>Operatore</CTableHeaderCell>
-                        <CTableHeaderCell className="text-end">Azioni</CTableHeaderCell>
-                      </CTableRow>
-                    </CTableHead>
-                    <CTableBody>
-                      {steps.map((step, index) => (
-                        <Draggable
-                          key={step.id}
-                          draggableId={`step-${step.id}`}
-                          index={index}
-                        >
-                          {(provided, snapshot) => (
-                            <CTableRow
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={snapshot.isDragging ? 'dragging' : ''}
-                            >
-                              <CTableDataCell style={{ width: '50px', color: 'lightgray' }}>{step.id}</CTableDataCell>
-                              <CTableDataCell style={{ width: '50px' }} className="text-center">
-                                {step.order}
-                              </CTableDataCell>
-                              <CTableDataCell>{step.name}</CTableDataCell>
-                              <CTableDataCell>{step.user?.name}</CTableDataCell>
-                              <CTableDataCell className="text-end">
-                                <CButtonGroup size="sm">
-                                  <CButton
-                                    color="warning"
-                                    onClick={() => {
-                                      setSelectedStep(step);
-                                      setIsStepModalVisible(true);
-                                    }}
-                                  >
-                                    <CIcon icon={icon.cilPencil} />
-                                  </CButton>
-                                  <CButton
-                                    color="danger"
-                                    onClick={() => handleDeleteStep(step.id)}
-                                  >
-                                    <CIcon icon={icon.cilTrash} />
-                                  </CButton>
-                                </CButtonGroup>
-                              </CTableDataCell>
-                            </CTableRow>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </CTableBody>
-                  </CTable>
-                </div>
-              )}
-            </Droppable>
-          </DragDropContext>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+            disabled={reorderStepsMutation.isLoading}
+          >
+            <CTable small bordered borderColor="secondary">
+              <CTableHead>
+                <CTableRow>
+                  <CTableHeaderCell style={{ width: '50px' }}></CTableHeaderCell>
+                  <CTableHeaderCell className="text-center" style={{ width: '80px' }}>Ordine</CTableHeaderCell>
+                  <CTableHeaderCell>Nome fase</CTableHeaderCell>
+                  <CTableHeaderCell>Operatore</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Azioni</CTableHeaderCell>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
+                <SortableContext
+                  items={steps.map(step => step.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {steps
+                    .sort((a, b) => (a.order || 0) - (b.order || 0)) // Garantiamo l'ordinamento corretto
+                    .map((step) => (
+                      <SortableStepRow
+                        key={step.id}
+                        step={step}
+                        onEdit={(step) => {
+                          setSelectedStep(step);
+                          setIsStepModalVisible(true);
+                        }}
+                        onDelete={handleDeleteStep}
+                        isReordering={reorderStepsMutation.isLoading}
+                      />
+                    ))}
+                </SortableContext>
+              </CTableBody>
+            </CTable>
+          </DndContext>
         )}
         <div className="text-end mt-2">
           <CButton
@@ -500,6 +403,79 @@ const WorksView = () => {
       </CTableDataCell>
     </CTableRow>
   );
+
+  // Sortable Step Row Component
+  const SortableStepRow = ({ step, onEdit, onDelete, isReordering }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({
+      id: step.id,
+      disabled: isReordering
+    });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : isReordering ? 0.7 : 1,
+      backgroundColor: isDragging ? '#f8f9fa' : undefined,
+      cursor: isReordering ? 'wait' : undefined,
+    };
+
+    return (
+      <CTableRow
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+      >
+        <CTableDataCell style={{ width: '50px', color: 'lightgray' }}>
+          <div
+            {...listeners}
+            style={{
+              cursor: isReordering ? 'wait' : 'grab',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <CIcon icon={icon.cilMenu} />
+          </div>
+        </CTableDataCell>
+        <CTableDataCell style={{ width: '80px' }} className="text-center">
+          {step.order || '-'}
+        </CTableDataCell>
+        <CTableDataCell>{step.name}</CTableDataCell>
+        <CTableDataCell>{step.user?.name || '-'}</CTableDataCell>
+        <CTableDataCell className="text-end">
+          <CButtonGroup size="sm">
+            <CTooltip content="Modifica">
+              <CButton
+                color="warning"
+                onClick={() => onEdit(step)}
+                disabled={isReordering}
+              >
+                <CIcon icon={icon.cilPencil} />
+              </CButton>
+            </CTooltip>
+            <CTooltip content="Elimina">
+              <CButton
+                color="danger"
+                onClick={() => onDelete(step.id)}
+                disabled={isReordering}
+              >
+                <CIcon icon={icon.cilTrash} />
+              </CButton>
+            </CTooltip>
+          </CButtonGroup>
+        </CTableDataCell>
+      </CTableRow>
+    );
+  };
 
   return (
     <CRow>

@@ -11,6 +11,7 @@ const Tasks = React.lazy(() => import('./views/works/Tasks'))
 const Provider = React.lazy(() => import('./views/provider/Provider'))
 const Category = React.lazy(() => import('./views/categories/Category'))
 const Steps = React.lazy(() => import('./views/steps/Steps'))
+const Pcs = React.lazy(() => import('./views/pc/Pc'))
 const Message = React.lazy(() => import('./views/dashboard/SendMessage'))
 // Base
 const Accordion = React.lazy(() => import('./views/base/accordion/Accordion'))
@@ -68,6 +69,7 @@ const routes = [
   { path: '/works', name: 'Works', element: Works, exact: true },
   { path: '/task', name: 'Tasks', element: Tasks, exact: true },
   { path: '/provider', name: 'Provider', element: Provider, exact: true },
+  { path: '/pcs', name: 'Pcs', element: Pcs, exact: true },
   { path: '/steps', name: 'Steps', element: Steps, exact: true },
   { path: '/categories', name: 'Categorie', element: Category, exact: true },
   { path: '/message', name: 'Messsaggi', element: Message, exact: true },

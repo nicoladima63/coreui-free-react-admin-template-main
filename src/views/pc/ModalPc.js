@@ -1,3 +1,4 @@
+// ModalPC.js
 import React, { useEffect, useState } from 'react';
 import {
   CModal,
@@ -8,40 +9,40 @@ import {
   CFormInput,
   CForm,
   CFormLabel,
+  CFormSwitch,
   CAlert,
   CSpinner,
   CTooltip
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
-import PCSelect from '../../components/PCSelect';
 
-const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
+const ModalPC = ({ visible, onClose, onSave, selectedPC }) => {
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
-    password: '',
-    pc_id: '',
+    location: '',
+    ipAddress: '',
+    status: true,
   });
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (selectedUser) {
+    if (selectedPC) {
       setFormData({
-        name: selectedUser.name || '',
-        email: selectedUser.email || '',
-        password: '', // Non precompiliamo mai la password per sicurezza
-        pc_id: selectedUser.pc_id || '',
+        name: selectedPC.name || '',
+        location: selectedPC.location || '',
+        ipAddress: selectedPC.ipAddress || '',
+        status: selectedPC.status ?? true,
       });
     } else {
       resetForm();
     }
-  }, [selectedUser]);
+  }, [selectedPC]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    setError(null); // Reset errore quando l'utente modifica un campo
+    setError(null);
   };
 
   const handleSubmit = async (e) => {
@@ -54,20 +55,19 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
       if (!formData.name.trim()) {
         throw new Error('Il nome è obbligatorio');
       }
-      if (!formData.email.trim()) {
-        throw new Error('L\'email è obbligatoria');
+      if (!formData.location.trim()) {
+        throw new Error('La location è obbligatoria');
       }
-      if (!selectedUser && !formData.password.trim()) {
-        throw new Error('La password è obbligatoria per i nuovi utenti');
+      if (!formData.ipAddress.trim()) {
+        throw new Error('L\'indirizzo IP è obbligatorio');
+      }
+      // Validazione IP semplice
+      const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+      if (!ipRegex.test(formData.ipAddress)) {
+        throw new Error('Formato indirizzo IP non valido');
       }
 
-      // Se stiamo modificando un utente esistente e la password è vuota, la rimuoviamo
-      const dataToSend = { ...formData };
-      if (selectedUser && !dataToSend.password) {
-        delete dataToSend.password;
-      }
-
-      await onSave(dataToSend);
+      await onSave(formData);
       resetForm();
       onClose();
     } catch (error) {
@@ -80,9 +80,9 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
   const resetForm = () => {
     setFormData({
       name: '',
-      email: '',
-      password: '',
-      pc_id: '',
+      location: '',
+      ipAddress: '',
+      status: true,
     });
     setError(null);
   };
@@ -95,15 +95,15 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
       keyboard={!isSubmitting}
     >
       <CModalHeader closeButton={!isSubmitting}>
-        <h5>{selectedUser ? 'Modifica' : 'Nuovo'} Utente</h5>
+        <h5>{selectedPC ? 'Modifica' : 'Nuova'} Postazione</h5>
       </CModalHeader>
       <CModalBody>
         <CForm onSubmit={handleSubmit}>
           <div className="mb-3">
-            <CFormLabel>Nome</CFormLabel>
+            <CFormLabel>Nome Postazione</CFormLabel>
             <CFormInput
               type="text"
-              placeholder="Nome utente"
+              placeholder="Es: PC-UFFICIO-1"
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
               disabled={isSubmitting}
@@ -112,39 +112,33 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
           </div>
 
           <div className="mb-3">
-            <CFormLabel>Email</CFormLabel>
+            <CFormLabel>Ubicazione</CFormLabel>
             <CFormInput
-              type="email"
-              placeholder="Indirizzo email"
-              value={formData.email}
-              onChange={(e) => handleChange('email', e.target.value)}
+              type="text"
+              placeholder="Es: Ufficio Tecnico"
+              value={formData.location}
+              onChange={(e) => handleChange('location', e.target.value)}
               disabled={isSubmitting}
             />
           </div>
 
           <div className="mb-3">
-            <CFormLabel>
-              Password
-              {selectedUser && (
-                <small className="text-muted ms-2">
-                  (lascia vuoto per mantenere invariata)
-                </small>
-              )}
-            </CFormLabel>
+            <CFormLabel>Indirizzo IP</CFormLabel>
             <CFormInput
-              type="password"
-              value={formData.password}
-              onChange={(e) => handleChange('password', e.target.value)}
-              placeholder={selectedUser ? '••••••••' : 'Inserisci una password'}
+              type="text"
+              placeholder="Es: 192.168.1.100"
+              value={formData.ipAddress}
+              onChange={(e) => handleChange('ipAddress', e.target.value)}
               disabled={isSubmitting}
             />
           </div>
 
           <div className="mb-3">
-            <CFormLabel>Postazione</CFormLabel>
-            <PCSelect
-              onSelect={(value) => handleChange('pc_id', value)}
-              selectedValue={formData.pc_id}
+            <CFormLabel>Stato</CFormLabel>
+            <CFormSwitch
+              label={formData.status ? "Attivo" : "Inattivo"}
+              checked={formData.status}
+              onChange={(e) => handleChange('status', e.target.checked)}
               disabled={isSubmitting}
             />
           </div>
@@ -165,7 +159,7 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
                 <CIcon icon={icon.cilX} />
               </CButton>
             </CTooltip>
-            <CTooltip content={selectedUser ? 'Salva modifiche' : 'Crea utente'}>
+            <CTooltip content={selectedPC ? 'Salva modifiche' : 'Crea postazione'}>
               <CButton
                 type="submit"
                 color="primary"
@@ -174,7 +168,7 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
                 {isSubmitting ? (
                   <CSpinner size="sm" />
                 ) : (
-                  <CIcon icon={selectedUser ? icon.cilSave : icon.cilPlus} />
+                  <CIcon icon={selectedPC ? icon.cilSave : icon.cilPlus} />
                 )}
               </CButton>
             </CTooltip>
@@ -185,4 +179,4 @@ const ModalUser = ({ visible, onClose, onSave, selectedUser }) => {
   );
 };
 
-export default ModalUser;
+export default ModalPC;

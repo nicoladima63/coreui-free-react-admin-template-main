@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import {
   CModal,
   CModalHeader,
@@ -30,55 +31,69 @@ const CREATION_STATES = {
   IDLE: 'idle',
   VALIDATING: 'validating',
   CREATING_TASK: 'creating_task',
-  CREATING_STEPS: 'creating_steps',
   COMPLETED: 'completed',
   ERROR: 'error'
 };
 
-const ModalNew = ({ visible, onClose }) => {
+const ModalNew = ({ visible, onClose, onSave }) => {
   const queryClient = useQueryClient();
-  const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
-  const { showToast } = useToast();  // Usando il tuo hook personalizzato
+  const { showConfirmDialog } = useConfirmDialog();
+  const { showSuccess, showError } = useToast();
 
-  // Form state
   const [formData, setFormData] = useState({
     workid: '',
     patient: '',
     deliveryDate: null
   });
 
-  // Process state
   const [creationState, setCreationState] = useState(CREATION_STATES.IDLE);
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState(null);
+  const [templateInfo, setTemplateInfo] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Template verification state
-  const [templateInfo, setTemplateInfo] = useState(null);
-
-  // Gestione cache locale per ripristino
+  // Gestione Autosave
   useEffect(() => {
-    const cachedData = localStorage.getItem('modalNewDraft');
-    if (cachedData) {
-      try {
-        const parsed = JSON.parse(cachedData);
-        setFormData(parsed);
-        setHasUnsavedChanges(true);
-      } catch (e) {
-        console.error('Error parsing cached form data:', e);
-        localStorage.removeItem('modalNewDraft');
+    if (visible) {
+      const cachedData = localStorage.getItem('taskDraft');
+      if (cachedData) {
+        try {
+          const parsed = JSON.parse(cachedData);
+          setFormData(parsed);
+          setHasUnsavedChanges(true);
+        } catch (e) {
+          localStorage.removeItem('taskDraft');
+        }
       }
     }
-  }, []);
+  }, [visible]);
 
-  // Salvataggio automatico della bozza
   useEffect(() => {
     if (hasUnsavedChanges) {
-      localStorage.setItem('modalNewDraft', JSON.stringify(formData));
+      localStorage.setItem('taskDraft', JSON.stringify(formData));
     }
   }, [formData, hasUnsavedChanges]);
 
-  // Mutation per la creazione del task con steps
+  // Template Verification Query
+  const verifyTemplateMutation = useMutation({
+    mutationFn: TasksService.verifyTemplateAvailability,
+    onMutate: () => {
+      setCreationState(CREATION_STATES.VALIDATING);
+      setProgress(10);
+    },
+    onSuccess: (info) => {
+      setTemplateInfo(info);
+      setCreationState(CREATION_STATES.IDLE);
+      if (!info.hasTemplate) {
+        showError('Questo tipo di lavoro non ha fasi template definite');
+      }
+    },
+    onError: (error) => {
+      showError('Impossibile verificare il template');
+      setCreationState(CREATION_STATES.ERROR);
+    }
+  });
+
+  // Create Task Mutation
   const createTaskMutation = useMutation({
     mutationFn: TasksService.createTaskWithSteps,
     onMutate: () => {
@@ -89,75 +104,82 @@ const ModalNew = ({ visible, onClose }) => {
       setProgress(100);
       setCreationState(CREATION_STATES.COMPLETED);
       queryClient.invalidateQueries([QUERY_KEYS.TASKS]);
-
-      showToast({
-        message: `Task creato con successo! Create ${data.stepCount} fasi dal template`,
-        type: 'success'
-      });
-
-      // Pulizia
-      localStorage.removeItem('modalNewDraft');
-      setHasUnsavedChanges(false);
-
-      // Chiusura ritardata per mostrare il completamento
-      setTimeout(() => {
-        onClose();
-        resetForm();
-      }, 1500);
+      showSuccess(`Task creato con successo! Create ${data.stepCount} fasi`);
+      cleanup();
     },
     onError: (error) => {
       setCreationState(CREATION_STATES.ERROR);
-      setError(error);
-
-      showToast({
-        message: `Errore nella creazione: ${error.message}`,
-        type: 'error'
-      });
+      showError(error);
     }
   });
 
-  // Verifica template quando viene selezionato un work
-  const verifyTemplate = useCallback(async (workId) => {
-    if (!workId) return;
-
-    try {
-      setCreationState(CREATION_STATES.VALIDATING);
-      const info = await TasksService.verifyTemplateAvailability(workId);
-      setTemplateInfo(info);
-      setProgress(10);
-
-      if (!info.hasTemplate) {
-        showToast({
-          message: 'Questo tipo di lavoro non ha fasi template definite',
-          type: 'warning'
-        });
-      }
-    } catch (error) {
-      console.error('Template verification error:', error);
-      showToast({
-        message: 'Impossibile verificare il template',
-        type: 'error'
-      });
-    } finally {
-      setCreationState(CREATION_STATES.IDLE);
-    }
-  }, [showToast]);
-
-  // Handler per la selezione del work
-  const handleWorkSelect = (workId) => {
+  // Handlers
+  const handleWorkSelect = useCallback((workId) => {
     setFormData(prev => ({ ...prev, workid: workId }));
     setHasUnsavedChanges(true);
-    verifyTemplate(workId);
-  };
+    if (workId) {
+      verifyTemplateMutation.mutate(workId);
+    }
+  }, []);
 
-  // Handler per il cambio dei campi del form
-  const handleInputChange = (field, value) => {
+  const handleInputChange = useCallback((field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setHasUnsavedChanges(true);
+  }, []);
+
+  const validateForm = useCallback(() => {
+    const errors = [];
+    if (!formData.workid) errors.push('Seleziona un tipo di lavoro');
+    if (!formData.patient) errors.push('Inserisci il paziente');
+    if (!formData.deliveryDate) errors.push('Seleziona una data di consegna');
+    return errors;
+  }, [formData]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      showError(validationErrors.join(', '));
+      return;
+    }
+
+    if (!templateInfo?.hasTemplate) {
+      const confirm = await showConfirmDialog({
+        title: 'Attenzione',
+        message: 'Questo tipo di lavoro non ha fasi template. Vuoi continuare?',
+        confirmText: 'Continua',
+        cancelText: 'Annulla'
+      });
+      if (!confirm) return;
+    }
+
+    createTaskMutation.mutate(formData);
   };
 
-  // Reset del form
-  const resetForm = () => {
+  const cleanup = useCallback(() => {
+    localStorage.removeItem('taskDraft');
+    setHasUnsavedChanges(false);
+    setTimeout(() => {
+      onClose();
+      resetForm();
+    }, 1500);
+  }, [onClose]);
+
+  const handleClose = async () => {
+    if (hasUnsavedChanges && creationState !== CREATION_STATES.COMPLETED) {
+      const confirm = await showConfirmDialog({
+        title: 'Modifiche non salvate',
+        message: 'Vuoi davvero chiudere? Le modifiche andranno perse.',
+        confirmText: 'Chiudi',
+        cancelText: 'Annulla'
+      });
+      if (!confirm) return;
+    }
+    cleanup();
+  };
+
+  const resetForm = useCallback(() => {
     setFormData({
       workid: '',
       patient: '',
@@ -165,82 +187,9 @@ const ModalNew = ({ visible, onClose }) => {
     });
     setCreationState(CREATION_STATES.IDLE);
     setProgress(0);
-    setError(null);
-    setHasUnsavedChanges(false);
     setTemplateInfo(null);
-  };
-
-  // Validazione form
-  const validateForm = () => {
-    const errors = [];
-    if (!formData.workid) errors.push('Seleziona un tipo di lavoro');
-    if (!formData.patient) errors.push('Inserisci il paziente');
-    if (!formData.deliveryDate) errors.push('Seleziona una data di consegna');
-    return errors;
-  };
-
-  // Handler per il submit
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    const validationErrors = validateForm();
-    if (validationErrors.length > 0) {
-      setError({ message: validationErrors.join(', ') });
-      showToast({
-        message: validationErrors.join(', '),
-        type: 'error'
-      });
-      return;
-    }
-
-    if (!templateInfo?.hasTemplate) {
-      const confirm = await showConfirmDialog({
-        title: 'Attenzione',
-        message: 'Questo tipo di lavoro non ha fasi template. Vuoi continuare comunque?',
-        confirmText: 'Continua',
-        cancelText: 'Annulla'
-      });
-
-      if (!confirm) return;
-    }
-
-    createTaskMutation.mutate(formData);
-  };
-
-  // Handler per la chiusura
-  const handleClose = async () => {
-    if (hasUnsavedChanges && creationState !== CREATION_STATES.COMPLETED) {
-      const confirm = await showConfirmDialog({
-        title: 'Modifiche non salvate',
-        message: 'Ci sono modifiche non salvate. Vuoi davvero chiudere?',
-        confirmText: 'Chiudi',
-        cancelText: 'Annulla'
-      });
-
-      if (!confirm) return;
-    }
-
-    resetForm();
-    onClose();
-  };
-
-  // Render degli stati di creazione
-  const renderCreationStatus = () => {
-    switch (creationState) {
-      case CREATION_STATES.VALIDATING:
-        return <div className="text-muted">Verifica template in corso...</div>;
-      case CREATION_STATES.CREATING_TASK:
-        return <div className="text-muted">Creazione task in corso...</div>;
-      case CREATION_STATES.CREATING_STEPS:
-        return <div className="text-muted">Creazione fasi in corso...</div>;
-      case CREATION_STATES.COMPLETED:
-        return <div className="text-success">Creazione completata!</div>;
-      case CREATION_STATES.ERROR:
-        return <CAlert color="danger">{error?.message}</CAlert>;
-      default:
-        return null;
-    }
-  };
+    setHasUnsavedChanges(false);
+  }, []);
 
   return (
     <CModal
@@ -250,7 +199,7 @@ const ModalNew = ({ visible, onClose }) => {
       keyboard={!createTaskMutation.isLoading}
     >
       <CModalHeader closeButton={!createTaskMutation.isLoading}>
-        <h5>Nuovo task</h5>
+        <h5>Nuovo Task</h5>
       </CModalHeader>
 
       <CModalBody>
@@ -264,7 +213,7 @@ const ModalNew = ({ visible, onClose }) => {
               required
             />
             {templateInfo && (
-              <small className="text-muted">
+              <small className={`text-${templateInfo.hasTemplate ? 'success' : 'warning'}`}>
                 {templateInfo.hasTemplate
                   ? `Template disponibile con ${templateInfo.templateCount} fasi`
                   : 'Nessun template disponibile'}
@@ -275,11 +224,10 @@ const ModalNew = ({ visible, onClose }) => {
           <div className="mb-3">
             <CFormLabel>Paziente</CFormLabel>
             <CFormInput
-              type="text"
               value={formData.patient}
               onChange={(e) => handleInputChange('patient', e.target.value)}
               disabled={createTaskMutation.isLoading}
-              placeholder="Inserisci il paziente"
+              placeholder="Nome paziente"
               required
             />
           </div>
@@ -289,24 +237,31 @@ const ModalNew = ({ visible, onClose }) => {
             <DatePicker
               selected={formData.deliveryDate}
               onChange={(date) => handleInputChange('deliveryDate', date)}
-              dateFormat="yyyy-MM-dd"
               className="form-control"
-              placeholderText="Seleziona la data di consegna"
+              dateFormat="dd/MM/yyyy"
+              minDate={new Date()}
+              placeholderText="Seleziona data"
               disabled={createTaskMutation.isLoading}
               required
             />
           </div>
 
-          {progress > 0 && (
-            <CProgress className="mb-3">
-              <CProgressBar
-                value={progress}
-                color={creationState === CREATION_STATES.ERROR ? 'danger' : 'primary'}
-              />
-            </CProgress>
+          {(progress > 0 || creationState !== CREATION_STATES.IDLE) && (
+            <>
+              <CProgress className="mb-3">
+                <CProgressBar
+                  value={progress}
+                  color={creationState === CREATION_STATES.ERROR ? 'danger' : 'success'}
+                  animated={creationState !== CREATION_STATES.COMPLETED}
+                />
+              </CProgress>
+              <div className={`text-${creationState === CREATION_STATES.ERROR ? 'danger' : 'info'} small mb-3`}>
+                {creationState === CREATION_STATES.VALIDATING && 'Verifica template...'}
+                {creationState === CREATION_STATES.CREATING_TASK && 'Creazione task...'}
+                {creationState === CREATION_STATES.COMPLETED && 'Completato!'}
+              </div>
+            </>
           )}
-
-          {renderCreationStatus()}
         </CForm>
       </CModalBody>
 
@@ -316,10 +271,8 @@ const ModalNew = ({ visible, onClose }) => {
           onClick={handleClose}
           disabled={createTaskMutation.isLoading}
         >
-          <CIcon icon={icon.cilX} className="me-2" />
-          Annulla
+          <CIcon icon={icon.cilX} /> Annulla
         </CButton>
-
         <CButton
           color="primary"
           onClick={handleSubmit}
@@ -328,20 +281,16 @@ const ModalNew = ({ visible, onClose }) => {
           {createTaskMutation.isLoading ? (
             <>
               <CSpinner size="sm" className="me-2" />
-              Creazione in corso...
+              Creazione...
             </>
           ) : (
             <>
-              <CIcon icon={icon.cilSave} className="me-2" />
-              Salva
+              <CIcon icon={icon.cilSave} /> Salva
             </>
           )}
         </CButton>
       </CModalFooter>
-
-      <ConfirmDialog />
     </CModal>
   );
 };
-
 export default ModalNew;

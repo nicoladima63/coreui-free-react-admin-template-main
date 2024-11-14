@@ -1,1 +1,93 @@
 // Here you can add other styles
+.message-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.message-list {
+  scrollbar-width: thin;
+  scrollbar-color: #ebedef transparent;
+}
+
+.message-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.message-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.message-list::-webkit-scrollbar-thumb {
+  background-color: #ebedef;
+  border-radius: 3px;
+}
+.messages-container {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.messages-list {
+  overflow-y: auto;
+}
+
+/* Stilizzazione scrollbar compatibile con i temi */
+.messages-container {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cui-border-color) transparent;
+}
+
+.messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  background-color: var(--cui-border-color);
+  border-radius: 3px;
+}
+
+
+/* Utilità per il text truncate */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Helper per min-width */
+.min-width-0 {
+  min-width: 0;
+}
+.message-item {
+  transition: background-color 0.2s ease;
+}
+
+.message-item:hover {
+  background-color: var(--cui-dark-rgb) !important;
+  cursor: pointer;
+}
+
+.message-unread {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.message-icon {
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.message-item:hover .message-icon {
+  opacity: 1;
+}
+
+/* Dark theme specific */
+[class*="bg-primary-subtle"] {
+  background-color: rgba(var(--cui-primary-rgb), 0.2) !important;
+}
+
+[class*="bg-info-subtle"] {
+  background-color: rgba(var(--cui-info-rgb), 0.2) !important;
+}

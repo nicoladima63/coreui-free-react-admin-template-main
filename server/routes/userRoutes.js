@@ -104,4 +104,5 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ error: 'Errore nel login' });
   }
 });
+
 module.exports = router;

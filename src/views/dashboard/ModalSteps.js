@@ -1,4 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '../../hooks/useToast';
+
 import {
   CModal,
   CModalHeader,
@@ -16,20 +19,55 @@ import {
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
 
+// ModalSteps.js
 const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
-  // Ordina le fasi per il campo order
-  const sortedSteps = [...task.steps].sort((a, b) => a.order - b.order);
+  const queryClient = useQueryClient();
+  const { showError } = useToast();
 
-  // Controlla se una fase può essere completata
-  const canCompleteStep = (currentStep) => {
-    // Trova tutte le fasi precedenti
-    const previousSteps = sortedSteps.filter(step => step.order < currentStep.order);
-    // Verifica se tutte le fasi precedenti sono completate
-    return previousSteps.length === 0 || previousSteps.every(step => step.completed);
-  };
+  // Step update mutation
+  const updateStepMutation = useMutation({
+    mutationFn: ({ stepId, completed }) => StepsService.updateStepStatus(stepId, completed),
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.TASKS]);
+    },
+    onError: (error) => {
+      showError(error);
+    }
+  });
 
-  const getStepStatusButton = (step) => {
-    const canComplete = canCompleteStep(step);
+  // Computed values with useMemo e controllo sicuro
+  const sortedSteps = useMemo(() => {
+    if (!task?.steps) return [];
+    return [...task.steps].sort((a, b) => a.order - b.order);
+  }, [task?.steps]);
+
+  const stepValidations = useMemo(() => {
+    if (!sortedSteps.length) return {};
+
+    return sortedSteps.reduce((acc, step) => {
+      const previousSteps = sortedSteps.filter(s => s.order < step.order);
+      acc[step.id] = {
+        canComplete: previousSteps.length === 0 || previousSteps.every(s => s.completed),
+        hasIncompletePrerequisites: previousSteps.some(s => !s.completed)
+      };
+      return acc;
+    }, {});
+  }, [sortedSteps]);
+
+  // Handlers
+  const handleToggleStep = useCallback(async (stepId, completed) => {
+    try {
+      await updateStepMutation.mutateAsync({ stepId, completed });
+    } catch (error) {
+      console.error('Error toggling step:', error);
+    }
+  }, [updateStepMutation]);
+
+  const getStepStatusButton = useCallback((step) => {
+    if (!step || !stepValidations[step.id]) return null;
+
+    const validation = stepValidations[step.id];
+    const canComplete = validation.canComplete;
 
     return (
       <CTooltip
@@ -41,44 +79,74 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
               : "Marca come completata"
         }
       >
-        <span>
+        <span className="d-inline-block">
           <CButton
-            color={step.completed ? "success" : canComplete ? "danger" : "secondary"}
+            color={step.completed ? "success" : canComplete ? "primary" : "secondary"}
             size="sm"
-            variant="ghost"
-            onClick={() => canComplete && onToggleStep(step.id, !step.completed)}
-            disabled={!canComplete && !step.completed}
+            variant={step.completed ? "ghost" : "outline"}
+            onClick={() => canComplete && handleToggleStep(step.id, !step.completed)}
+            disabled={!canComplete && !step.completed || updateStepMutation.isLoading}
+            className={updateStepMutation.isLoading ? 'position-relative' : ''}
           >
-            <CIcon
-              icon={step.completed ? icon.cilCheckCircle : icon.cilXCircle}
-            />
+            {updateStepMutation.isLoading && step.id === updateStepMutation.variables?.stepId ? (
+              <CSpinner size="sm" />
+            ) : (
+              <CIcon
+                icon={step.completed ? icon.cilCheckCircle : icon.cilXCircle}
+                className={canComplete ? 'transition-icon' : ''}
+              />
+            )}
           </CButton>
         </span>
       </CTooltip>
     );
-  };
+  }, [stepValidations, updateStepMutation, handleToggleStep]);
+
+  // Early return se non c'è task
+  if (!task) return null;
 
   return (
-    <CModal visible={visible} onClose={onClose} size="lg">
-      <CModalHeader>
+    <CModal
+      visible={visible}
+      onClose={onClose}
+      size="lg"
+      backdrop="static"
+      keyboard={!updateStepMutation.isLoading}
+    >
+      <CModalHeader closeButton={!updateStepMutation.isLoading}>
         <CModalTitle>
-          Fasi della lavorazione: {task.work.name} - Paziente: {task.patient}
+          <div className="d-flex align-items-center">
+            <span className="me-2">Fasi della lavorazione:</span>
+            <CBadge
+              color="info"
+              style={{
+                backgroundColor: task.work?.category?.color || '#6c757d',
+                padding: '0.5em 1em'
+              }}
+            >
+              {task.work?.name || 'N/D'}
+            </CBadge>
+            <span className="mx-2">-</span>
+            <span className="text-muted">Paziente: {task.patient || 'N/D'}</span>
+          </div>
         </CModalTitle>
       </CModalHeader>
+
       <CModalBody>
-        <CTable small>
+        <CTable hover responsive>
           <CTableHead>
             <CTableRow>
-              <CTableHeaderCell>Ordine</CTableHeaderCell>
+              <CTableHeaderCell width="80">Ordine</CTableHeaderCell>
               <CTableHeaderCell>Fase</CTableHeaderCell>
               <CTableHeaderCell>Operatore</CTableHeaderCell>
-              <CTableHeaderCell className="text-center">Stato</CTableHeaderCell>
+              <CTableHeaderCell width="100" className="text-center">Stato</CTableHeaderCell>
             </CTableRow>
           </CTableHead>
           <CTableBody>
-            {sortedSteps.length === 0 ? (
+            {!sortedSteps.length ? (
               <CTableRow>
-                <CTableDataCell colSpan="4" className="text-center">
+                <CTableDataCell colSpan="4" className="text-center text-muted py-4">
+                  <CIcon icon={icon.cilBan} className="me-2" />
                   Nessuna fase disponibile
                 </CTableDataCell>
               </CTableRow>
@@ -86,11 +154,37 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
               sortedSteps.map((step) => (
                 <CTableRow
                   key={step.id}
-                  className={!canCompleteStep(step) && !step.completed ? "text-muted" : ""}
+                  className={`${stepValidations[step.id]?.hasIncompletePrerequisites ? 'text-muted' : ''} ${step.completed ? 'table-success' : ''
+                    }`}
                 >
-                  <CTableDataCell>{step.order}</CTableDataCell>
-                  <CTableDataCell>{step.name}</CTableDataCell>
-                  <CTableDataCell>{step.user.name}</CTableDataCell>
+                  <CTableDataCell className="text-center">
+                    <CBadge
+                      color={step.completed ? "success" : "primary"}
+                      shape="rounded-pill"
+                    >
+                      {step.order}
+                    </CBadge>
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    <div className="d-flex align-items-center">
+                      {step.name}
+                      {stepValidations[step.id]?.hasIncompletePrerequisites && (
+                        <CTooltip content="Richiede il completamento delle fasi precedenti">
+                          <CIcon
+                            icon={icon.cilWarning}
+                            className="ms-2 text-warning"
+                            size="sm"
+                          />
+                        </CTooltip>
+                      )}
+                    </div>
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    <div className="d-flex align-items-center">
+                      <CIcon icon={icon.cilUser} className="me-2" size="sm" />
+                      {step.user?.name || 'N/D'}
+                    </div>
+                  </CTableDataCell>
                   <CTableDataCell className="text-center">
                     {getStepStatusButton(step)}
                   </CTableDataCell>
@@ -99,6 +193,13 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
             )}
           </CTableBody>
         </CTable>
+
+        {updateStepMutation.isLoading && (
+          <CAlert color="info" className="d-flex align-items-center mt-3">
+            <CSpinner size="sm" className="me-2" />
+            Aggiornamento in corso...
+          </CAlert>
+        )}
       </CModalBody>
     </CModal>
   );

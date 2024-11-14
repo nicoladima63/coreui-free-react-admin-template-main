@@ -291,7 +291,7 @@ const ModalStep = ({ visible, onClose, selectedStep = null, workId }) => {
           {!workId && (
             <div className="mb-3">
               <CFormLabel>
-                Lavorazione <CBadge color="danger">*</CBadge>
+                Lavorazione
               </CFormLabel>
               <WorkSelect
                 onSelect={(value) => handleChange('workid', value)}
@@ -310,7 +310,7 @@ const ModalStep = ({ visible, onClose, selectedStep = null, workId }) => {
 
           <div className="mb-3">
             <CFormLabel>
-              Nome Fase <CBadge color="danger">*</CBadge>
+              Nome Fase
             </CFormLabel>
             <CFormInput
               type="text"
@@ -330,7 +330,7 @@ const ModalStep = ({ visible, onClose, selectedStep = null, workId }) => {
 
           <div className="mb-3">
             <CFormLabel>
-              Ordine <CBadge color="danger">*</CBadge>
+              Ordine
             </CFormLabel>
             <CFormInput
               type="number"
@@ -350,7 +350,7 @@ const ModalStep = ({ visible, onClose, selectedStep = null, workId }) => {
 
           <div className="mb-3">
             <CFormLabel>
-              Operatore <CBadge color="danger">*</CBadge>
+              Operatore
             </CFormLabel>
             <UserSelect
               onSelect={(value) => handleChange('userid', value)}
