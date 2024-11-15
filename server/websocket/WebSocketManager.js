@@ -160,10 +160,10 @@ class WebSocketManager {
     console.log(`User ${userId} disconnected`);
   }
 
-  async handleStepCompletion(completedStep, taskId) {
+  async handleStepCompletion(completedStep, taskid) {
     try {
       const steps = await db.Step.findAll({
-        where: { taskId },
+        where: { taskid },
         include: [
           {
             model: db.User,

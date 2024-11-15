@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../../hooks/useToast';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 
 import {
   CModal,
@@ -15,14 +16,26 @@ import {
   CTableDataCell,
   CButton,
   CTooltip,
+  CBadge,
+  CSpinner,
+  CAlert,
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
 
-// ModalSteps.js
+import { StepsService } from '../../services/api';
+import { QUERY_KEYS } from '../../constants/queryKeys';
+
 const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
   const queryClient = useQueryClient();
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
+  const { showConfirmDialog } = useConfirmDialog();
+  const [localTask, setLocalTask] = useState(task);
+
+  // Aggiorniamo localTask quando cambia task
+  useEffect(() => {
+    setLocalTask(task);
+  }, [task]);
 
   // Step update mutation
   const updateStepMutation = useMutation({
@@ -35,11 +48,28 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
     }
   });
 
-  // Computed values with useMemo e controllo sicuro
+  // Mutation per completare il task
+  const completeTaskMutation = useMutation({
+    mutationFn: (taskId) => TasksService.updateTask(taskId, { completed: true }),
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.TASKS]);
+      showSuccess('Task completato e archiviato');
+      onClose();
+    },
+    onError: (error) => {
+      showError('Errore durante l\'archiviazione del task');
+    }
+  });
+  const areAllStepsCompleted = useMemo(() => {
+    if (!localTask?.steps?.length) return false;
+    return localTask.steps.every(step => step.completed);
+  }, [localTask?.steps]);
+
+  // Computed values
   const sortedSteps = useMemo(() => {
-    if (!task?.steps) return [];
-    return [...task.steps].sort((a, b) => a.order - b.order);
-  }, [task?.steps]);
+    if (!localTask?.steps) return [];
+    return [...localTask.steps].sort((a, b) => a.order - b.order);
+  }, [localTask?.steps]);
 
   const stepValidations = useMemo(() => {
     if (!sortedSteps.length) return {};
@@ -54,20 +84,60 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
     }, {});
   }, [sortedSteps]);
 
+
   // Handlers
   const handleToggleStep = useCallback(async (stepId, completed) => {
     try {
+      // Calcola il nuovo stato degli step prima dell'aggiornamento
+      const updatedSteps = localTask.steps.map(s =>
+        s.id === stepId ? { ...s, completed } : s
+      );
+
+      // Verifica se con questo aggiornamento completiamo tutte le fasi
+      const willAllBeCompleted = completed && updatedSteps.every(s =>
+        s.id === stepId ? completed : s.completed
+      );
+
+      // Aggiorna immediatamente lo stato locale
+      setLocalTask(prev => ({
+        ...prev,
+        steps: updatedSteps
+      }));
+
+      // Esegui la mutation
       await updateStepMutation.mutateAsync({ stepId, completed });
+
+      // Se questa era l'ultima fase da completare, chiedi conferma per l'archiviazione
+      if (willAllBeCompleted) {
+        const shouldArchive = await showConfirmDialog({
+          title: 'Task Completato',
+          message: 'Tutte le fasi sono state completate. Vuoi archiviare questo task?',
+          confirmText: 'Archivia',
+          cancelText: 'Non ancora',
+          confirmColor: 'success'
+        });
+
+        if (shouldArchive) {
+          await completeTaskMutation.mutateAsync(task.id);
+        }
+      } else {
+        showSuccess('Fase aggiornata');
+      }
     } catch (error) {
+      // Ripristina lo stato precedente in caso di errore
+      setLocalTask(task);
       console.error('Error toggling step:', error);
+      showError('Errore nell\'aggiornamento della fase');
     }
-  }, [updateStepMutation]);
+  }, [updateStepMutation, completeTaskMutation, localTask, task, showSuccess, showError, showConfirmDialog]);
 
   const getStepStatusButton = useCallback((step) => {
     if (!step || !stepValidations[step.id]) return null;
 
     const validation = stepValidations[step.id];
     const canComplete = validation.canComplete;
+    const isUpdating = updateStepMutation.isLoading &&
+      updateStepMutation.variables?.stepId === step.id;
 
     return (
       <CTooltip
@@ -85,10 +155,10 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
             size="sm"
             variant={step.completed ? "ghost" : "outline"}
             onClick={() => canComplete && handleToggleStep(step.id, !step.completed)}
-            disabled={!canComplete && !step.completed || updateStepMutation.isLoading}
-            className={updateStepMutation.isLoading ? 'position-relative' : ''}
+            disabled={!canComplete && !step.completed || isUpdating}
+            className={isUpdating ? 'position-relative' : ''}
           >
-            {updateStepMutation.isLoading && step.id === updateStepMutation.variables?.stepId ? (
+            {isUpdating ? (
               <CSpinner size="sm" />
             ) : (
               <CIcon
@@ -102,7 +172,26 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
     );
   }, [stepValidations, updateStepMutation, handleToggleStep]);
 
-  // Early return se non c'è task
+  const handleArchiveTask = useCallback(async (taskId) => {
+    try {
+      const shouldArchive = await showConfirmDialog({
+        title: 'Archivia Task',
+        message: 'Vuoi archiviare questo task? Non sarà più visibile nella dashboard.',
+        confirmText: 'Archivia',
+        cancelText: 'Annulla',
+        confirmColor: 'success'
+      });
+
+      if (shouldArchive) {
+        await completeTaskMutation.mutateAsync(taskId);
+      }
+    } catch (error) {
+      console.error('Error archiving task:', error);
+      showError('Errore durante l\'archiviazione del task');
+    }
+  }, [completeTaskMutation, showConfirmDialog, showError]);
+
+
   if (!task) return null;
 
   return (
@@ -120,19 +209,35 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
             <CBadge
               color="info"
               style={{
-                backgroundColor: task.work?.category?.color || '#6c757d',
+                backgroundColor: localTask?.work?.category?.color || '#6c757d',
                 padding: '0.5em 1em'
               }}
             >
-              {task.work?.name || 'N/D'}
+              {localTask?.work?.name || 'N/D'}
             </CBadge>
             <span className="mx-2">-</span>
-            <span className="text-muted">Paziente: {task.patient || 'N/D'}</span>
+            <span className="text-muted">Paziente: {localTask?.patient || 'N/D'}</span>
           </div>
         </CModalTitle>
       </CModalHeader>
 
       <CModalBody>
+        {areAllStepsCompleted && (
+          <CAlert color="info" className="d-flex align-items-center mb-3">
+            <CIcon icon={icon.cilCheckCircle} className="me-2" />
+            Tutte le fasi sono state completate
+            <CButton
+              color="success"
+              variant="ghost"
+              size="sm"
+              className="ms-auto"
+              onClick={() => handleArchiveTask(task.id)}
+            >
+              <CIcon icon={icon.cilArchive} className="me-1" />
+              Archivia Task
+            </CButton>
+          </CAlert>
+        )}
         <CTable hover responsive>
           <CTableHead>
             <CTableRow>
@@ -154,8 +259,7 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
               sortedSteps.map((step) => (
                 <CTableRow
                   key={step.id}
-                  className={`${stepValidations[step.id]?.hasIncompletePrerequisites ? 'text-muted' : ''} ${step.completed ? 'table-success' : ''
-                    }`}
+                  className={`${stepValidations[step.id]?.hasIncompletePrerequisites ? 'text-muted' : ''} ${step.completed ? 'table-success' : ''}`}
                 >
                   <CTableDataCell className="text-center">
                     <CBadge
@@ -194,10 +298,13 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
           </CTableBody>
         </CTable>
 
-        {updateStepMutation.isLoading && (
+        {(updateStepMutation.isLoading || completeTaskMutation.isLoading) && (
           <CAlert color="info" className="d-flex align-items-center mt-3">
             <CSpinner size="sm" className="me-2" />
-            Aggiornamento in corso...
+            {completeTaskMutation.isLoading
+              ? 'Archiviazione task in corso...'
+              : 'Aggiornamento in corso...'
+            }
           </CAlert>
         )}
       </CModalBody>

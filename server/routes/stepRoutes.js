@@ -1,4 +1,7 @@
 const express = require('express');
+const WebSocketManager = require('../websocket/WebSocketManager');
+const Task = require('../models/Task');
+const User = require('../models/User');
 const Step = require('../models/Step');
 const authenticateToken = require('../middleware/authMiddleware'); // Importa il middleware
 const router = express.Router();

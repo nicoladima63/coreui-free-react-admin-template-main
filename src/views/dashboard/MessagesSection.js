@@ -20,91 +20,17 @@ import { useToast } from '../../hooks/useToast';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { QUERY_KEYS } from '../../constants/queryKeys';
 
-const MessageItem2 = React.memo(({ message, onClick, isLoading }) => {
-  // Utilizziamo le classi CoreUI per la compatibilità con i temi
-  return (
-    <div
-      onClick={onClick}
-      className={`
-        d-flex p-3 border-bottom 
-        ${!message.read ? 'bg-light' : ''} 
-        ${!message.read ? 'cursor-pointer' : ''}
-      `}
-      style={{
-        borderLeft: '4px solid',
-        borderLeftColor: message.priority === 'high' ? 'var(--cui-danger)' :
-          message.type === 'step_notification' ? 'var(--cui-info)' :
-            'var(--cui-primary)',
-      }}
-    >
-      {/* Icona/Avatar */}
-      <div className="me-3">
-        <div className={`
-          rounded-circle d-flex align-items-center justify-content-center
-          ${message.type === 'step_notification' ? 'bg-info' : 'bg-primary'}
-          bg-opacity-10
-        `}
-          style={{ width: '40px', height: '40px' }}>
-          <CIcon
-            icon={message.type === 'step_notification' ? icon.cilBell : icon.cilEnvelopeClosed}
-            className={message.type === 'step_notification' ? 'text-info' : 'text-primary'}
-          />
-        </div>
-      </div>
-
-      {/* Contenuto */}
-      <div className="flex-grow-1 min-width-0">
-        <div className="d-flex justify-content-between align-items-start mb-1">
-          <h6 className="mb-0 text-truncate">
-            {message.type === 'step_notification' ? 'Notifica Step' : message.from?.name || 'Sistema'}
-          </h6>
-          <small className="text-medium-emphasis ms-2 text-nowrap">
-            {formatTimeAgo(message.createdAt)}
-          </small>
-        </div>
-
-        <p className="mb-1 text-body text-break">
-          {message.content}
-        </p>
-
-        <div className="d-flex align-items-center mt-1">
-          {!message.read && (
-            <CBadge color="primary" shape="rounded-pill" className="me-2">
-              Nuovo
-            </CBadge>
-          )}
-          {message.priority === 'high' && (
-            <CBadge color="danger" shape="rounded-pill">
-              Priorità Alta
-            </CBadge>
-          )}
-          {message.type === 'step_notification' && (
-            <small className="text-info ms-2">
-              <CIcon icon={icon.cilArrowRight} size="sm" className="me-1" />
-              Vai al task
-            </small>
-          )}
-        </div>
-      </div>
-
-      {/* Indicatore di stato */}
-      {isLoading ? (
-        <div className="ms-2">
-          <CSpinner size="sm" />
-        </div>
-      ) : !message.read && (
-        <div
-          className="ms-2 bg-primary rounded-circle"
-          style={{ width: '8px', height: '8px' }}
-        />
-      )}
-    </div>
-  );
-});
 const MessageItem = React.memo(({ message, onClick, isLoading }) => {
+
+  const handleClick = (e) => {
+    e.preventDefault();
+    if (!isLoading && onClick) {
+      onClick(message);
+    }
+  };
   return (
     <div
-      onClick={onClick}
+      onClick={handleClick}
       className={`
         message-item d-flex align-items-start p-3 border-bottom border-dark
         ${!message.read ? 'message-unread' : ''}
@@ -114,8 +40,15 @@ const MessageItem = React.memo(({ message, onClick, isLoading }) => {
         borderLeft: '4px solid',
         borderLeftColor: message.priority === 'high' ? 'var(--cui-danger)' :
           'var(--cui-primary-subtle)',
+        cursor: 'pointer', // Aggiungiamo il cursore pointer
+        transition: 'all 0.2s ease', // Aggiungiamo una transizione fluida
+        '&:hover': {
+          backgroundColor: 'var(--cui-dark-hover)', // Effetto hover
+          transform: 'translateX(2px)' // Leggero spostamento al hover
+        }
       }}
     >
+
       {/* Icona Messaggio */}
       <div className="message-icon me-3">
         <div className={`
@@ -220,6 +153,7 @@ const MessagesSection = ({ userId }) => {
   const { showSuccess, showError } = useToast();
   const [isConnected, setIsConnected] = useState(false);
 
+  const [processingMessageId, setProcessingMessageId] = useState(null);
   // Funzione di validazione dei messaggi
   const validateMessage = useCallback((message) => {
     if (!message) return false;
@@ -270,15 +204,16 @@ const MessagesSection = ({ userId }) => {
   // Mutation per segnare come letto
   const markAsReadMutation = useMutation({
     mutationFn: TodoService.markAsRead,
-    onSuccess: () => {
+    onSuccess: (_, messageId) => {
       queryClient.invalidateQueries([QUERY_KEYS.TODOS]);
       showSuccess('Messaggio segnato come letto');
+      setProcessingMessageId(null);
     },
     onError: (error) => {
       showError(error);
+      setProcessingMessageId(null);
     }
   });
-
   // WebSocket setup
   useEffect(() => {
     websocketService.connect();
@@ -311,25 +246,21 @@ const MessagesSection = ({ userId }) => {
 
   // Handlers
   const handleMarkAsRead = useCallback(async (message) => {
-    if (!message?.id || message.read || markAsReadMutation.isLoading) return;
-
-    const confirmed = await showConfirmDialog({
-      title: 'Conferma lettura',
-      message: 'Vuoi segnare questo messaggio come letto?',
-      confirmText: 'Segna come letto',
-      cancelText: 'Annulla'
-    });
-
-    if (confirmed) {
-      await markAsReadMutation.mutateAsync(message.id);
-    }
-  }, [markAsReadMutation, showConfirmDialog]);
-
-  const handleMessageClick = useCallback(async (message) => {
-    if (!message?.id || markAsReadMutation.isLoading) return;
+    if (!message?.id || message.read || processingMessageId) return;
 
     try {
-      if (message.type === 'step_notification' && !message.read) {
+      setProcessingMessageId(message.id);
+      await markAsReadMutation.mutateAsync(message.id);
+    } catch (error) {
+      showError('Errore nel segnare il messaggio come letto');
+    }
+  }, [markAsReadMutation, processingMessageId, showError]);
+
+  const handleMessageClick = useCallback(async (message) => {
+    if (!message?.id || processingMessageId) return;
+
+    try {
+      if (message.type === 'step_notification') {
         const confirmed = await showConfirmDialog({
           title: 'Notifica step',
           message: 'Vuoi andare alla pagina del task?',
@@ -338,18 +269,30 @@ const MessagesSection = ({ userId }) => {
           confirmColor: 'primary'
         });
 
-        await markAsReadMutation.mutateAsync(message.id);
+        // Segna sempre come letto
+        await handleMarkAsRead(message);
 
+        // Se confermato e abbiamo un ID del task, naviga
         if (confirmed && message.relatedTaskId) {
           navigate(`/tasks/${message.relatedTaskId}`);
         }
       } else {
-        await handleMarkAsRead(message);
+        // Per i messaggi normali, chiedi conferma per segnare come letto
+        const confirmed = await showConfirmDialog({
+          title: 'Conferma lettura',
+          message: 'Vuoi segnare questo messaggio come letto?',
+          confirmText: 'Segna come letto',
+          cancelText: 'Annulla'
+        });
+
+        if (confirmed) {
+          await handleMarkAsRead(message);
+        }
       }
     } catch (error) {
       showError('Errore nella gestione del messaggio');
     }
-  }, [markAsReadMutation, showConfirmDialog, navigate, handleMarkAsRead, showError]);
+  }, [processingMessageId, showConfirmDialog, handleMarkAsRead, navigate, showError]);
 
   // Renderers
   const renderMessageIcon = useCallback((message) => {
@@ -472,12 +415,11 @@ const MessagesSection = ({ userId }) => {
               <MessageItem
                 key={message?.id || Math.random()}
                 message={message}
-                onClick={() => handleMessageClick(message)}
-                isLoading={markAsReadMutation.isLoading && markAsReadMutation.variables === message?.id}
+                onClick={handleMessageClick}
+                isLoading={processingMessageId === message?.id}
               />
             ))}
-          </div>
-        )}
+          </div>)}
 
         {isFetching && !isLoading && (
           <div className="text-center p-2 border-top">

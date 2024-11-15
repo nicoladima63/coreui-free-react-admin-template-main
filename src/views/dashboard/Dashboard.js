@@ -146,7 +146,8 @@ const Dashboard = () => {
                       onClick={() => setModalState(prev => ({ ...prev, addVisible: true }))}
                       disabled={isLoading || isFetching}
                     >
-                      <CIcon icon={icon.cilPlus} />
+                      <CIcon icon={icon.cilPlus} className="me-2" />
+                      Nuova
                     </CButton>
                   </CTooltip>
 

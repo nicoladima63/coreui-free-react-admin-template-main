@@ -1,33 +1,17 @@
+// TasksView.js
 import React, { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  CCard,
-  CCardBody,
-  CCardHeader,
-  CButton,
-  CButtonGroup,
-  CCol,
-  CRow,
-  CTable,
-  CTableBody,
-  CTableHead,
-  CTableHeaderCell,
-  CTableRow,
-  CTableDataCell,
-  CSpinner,
-  CAlert,
-  CTooltip
-} from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
-import ModalUser from './ModalUser';
-import { UsersService } from '../../services/api';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { useToast } from '../../hooks/useToast';
 import { QUERY_KEYS } from '../../constants/queryKeys';
 import TableLayout from '../../components/TableLayout';
+import { TasksService } from '../../services/api';
+import ModalTask from './ModalTask';
+import { CBadge, CButton, CButtonGroup, CTooltip } from '@coreui/react';
 
-const UsersView = () => {
+const TasksView = () => {
   const queryClient = useQueryClient();
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
   const { showSuccess, showError } = useToast();
@@ -37,47 +21,33 @@ const UsersView = () => {
 
   const filterData = useCallback((data, term) => {
     if (!term.trim()) return data;
-
     const searchLower = term.toLowerCase();
     return data.filter(item => (
-      item.name?.toLowerCase().includes(searchLower) ||
-      item.email?.toLowerCase().includes(searchLower)
+      item.work?.name?.toLowerCase().includes(searchLower) ||
+      item.patient?.toLowerCase().includes(searchLower)
     ));
   }, []);
-  // Query per utenti
+
+  // Query per i task
   const {
-    data: users = [],
+    data: tasks = [],
     isLoading,
     error,
     isFetching
   } = useQuery({
-    queryKey: [QUERY_KEYS.USERS, searchTerm],
-    queryFn: () => UsersService.getUsers(searchTerm), // Assumendo che l'API supporti la ricerca
+    queryKey: [QUERY_KEYS.TASKS, searchTerm],
+    queryFn: TasksService.getTasksForDashboard,
     select: useCallback((data) => {
-      // Se l'API non supporta la ricerca, filtriamo i risultati lato client
       return filterData(data, searchTerm);
     }, [searchTerm, filterData])
   });
 
-  // Mutation per creare un nuovo utente
-  const createMutation = useMutation({
-    mutationFn: UsersService.createUser,
-    onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.USERS]);
-      showSuccess('Utente creato con successo');
-      setIsModalVisible(false);
-    },
-    onError: (error) => {
-      showError(error);
-    }
-  });
-
-  // Mutation per aggiornare un utente
+  // Mutation per aggiornare un task
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }) => UsersService.updateUser(id, data),
+    mutationFn: ({ id, ...data }) => TasksService.updateTask(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.USERS]);
-      showSuccess('Utente aggiornato con successo');
+      queryClient.invalidateQueries([QUERY_KEYS.TASKS]);
+      showSuccess('Task aggiornato con successo');
       setIsModalVisible(false);
     },
     onError: (error) => {
@@ -85,12 +55,12 @@ const UsersView = () => {
     }
   });
 
-  // Mutation per eliminare un utente
+  // Mutation per eliminare un task
   const deleteMutation = useMutation({
-    mutationFn: UsersService.deleteUser,
+    mutationFn: TasksService.deleteTask,
     onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.USERS]);
-      showSuccess('Utente eliminato con successo');
+      queryClient.invalidateQueries([QUERY_KEYS.TASKS]);
+      showSuccess('Task eliminato con successo');
     },
     onError: (error) => {
       showError(error);
@@ -100,7 +70,7 @@ const UsersView = () => {
   const handleDelete = async (id) => {
     const confirmed = await showConfirmDialog({
       title: 'Conferma eliminazione',
-      message: 'Sei sicuro di voler eliminare questo utente? L\'operazione non può essere annullata.',
+      message: 'Sei sicuro di voler eliminare questo task? L\'operazione non può essere annullata.',
       confirmText: 'Elimina',
       cancelText: 'Annulla',
       confirmColor: 'danger'
@@ -111,16 +81,12 @@ const UsersView = () => {
     }
   };
 
-  const handleSave = async (userData) => {
+  const handleSave = async (taskData) => {
     try {
-      if (selectedItem) {
-        await updateMutation.mutateAsync({ id: selectedItem.id, ...userData });
-      } else {
-        await createMutation.mutateAsync(userData);
-      }
+      await updateMutation.mutateAsync({ id: selectedItem.id, ...taskData });
     } catch (error) {
       console.error('Errore durante il salvataggio:', error);
-      throw error; // Rilanciamo l'errore per gestirlo nel componente modale
+      throw error;
     }
   };
 
@@ -129,24 +95,62 @@ const UsersView = () => {
     setSelectedItem(null);
   };
 
+  const getCompletionBadge = (task) => {
+    const completedSteps = task.steps?.filter(step => step.completed).length || 0;
+    const totalSteps = task.steps?.length || 0;
+    const percentage = totalSteps ? (completedSteps / totalSteps) * 100 : 0;
+
+    let color = 'danger';
+    if (percentage === 100) color = 'success';
+    else if (percentage > 66) color = 'primary';
+    else if (percentage > 33) color = 'warning';
+
+    return (
+      <CBadge color={color} shape="rounded-pill">
+        {completedSteps}/{totalSteps} completati
+      </CBadge>
+    );
+  };
+
   const columns = [
     {
       header: '#ID',
       field: 'id',
     },
     {
-      header: 'Nome',
-      field: 'name',
-      render: (item) => <strong>{item.name}</strong>
+      header: 'Tipo Lavoro',
+      field: 'work.name',
+      render: (item) => (
+        <div className="d-flex align-items-center">
+          <div
+            className="rounded-circle me-2"
+            style={{
+              width: '10px',
+              height: '10px',
+              backgroundColor: item.work?.category?.color
+            }}
+          />
+          <strong>{item.work?.name}</strong>
+        </div>
+      )
     },
     {
-      header: 'Email',
-      field: 'email',
+      header: 'Paziente',
+      field: 'patient',
     },
     {
-      header: 'Postazione',
-      field: 'pc_id',
-      render: (item) => item.pc?.name || '-'
+      header: 'Data Consegna',
+      field: 'deliveryDate',
+      render: (item) => new Date(item.deliveryDate).toLocaleDateString('it-IT', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      })
+    },
+    {
+      header: 'Completamento',
+      field: 'steps',
+      render: (item) => getCompletionBadge(item)
     },
     {
       header: 'Azioni',
@@ -185,33 +189,29 @@ const UsersView = () => {
   return (
     <>
       <TableLayout
-        title="Gestione Utenti"
+        title="Gestione Task"
         isLoading={isLoading}
         error={error}
         isFetching={isFetching}
-        data={users}
+        data={tasks}
         columns={columns}
-        onNew={() => {
-          setSelectedItem(null);
-          setIsModalVisible(true);
-        }}
-        onRefresh={() => queryClient.invalidateQueries([QUERY_KEYS.USERS])}
-        isActionDisabled={createMutation.isLoading || updateMutation.isLoading || deleteMutation.isLoading}
+        onRefresh={() => queryClient.invalidateQueries([QUERY_KEYS.TASKS])}
+        isActionDisabled={updateMutation.isLoading || deleteMutation.isLoading}
         showSearch={true}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        showNewButton={false} // Disabilitiamo il pulsante nuovo poiché i task vengono creati dalla dashboard
       />
 
-      <ModalUser
+      <ModalTask
         visible={isModalVisible}
         onClose={handleCloseModal}
         onSave={handleSave}
-        selectedUser={selectedItem}
+        selectedTask={selectedItem}
       />
       <ConfirmDialog />
     </>
   );
-
 };
 
-export default UsersView;
+export default TasksView;

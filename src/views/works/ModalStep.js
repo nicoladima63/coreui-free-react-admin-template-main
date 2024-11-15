@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect,useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   CModal,
@@ -68,23 +68,43 @@ const ModalStep = ({ visible, onClose, selectedStep = null, workId }) => {
   // Effetto per precompilare il form
   useEffect(() => {
     if (selectedStep) {
-      setFormData({
+      const initialData = {
         name: selectedStep.name || '',
         order: selectedStep.order || '',
         userid: selectedStep.userid || '',
         workid: selectedStep.workid || workId || '',
         completed: selectedStep.completed || false
-      });
+      };
+      setFormData(initialData);
+
+      // Validazione iniziale
+      const errors = {};
+      if (!initialData.name.trim()) errors.name = 'Il nome è obbligatorio';
+      if (!initialData.order.trim()) errors.order = 'L\'ordine è obbligatorio';
+      if (!initialData.userid) errors.userid = 'Seleziona un operatore';
+      if (!initialData.workid) errors.workid = 'Seleziona una lavorazione';
+
+      setValidationErrors(errors);
+      setIsValid(Object.keys(errors).length === 0);
     } else if (workId) {
       // Se è una nuova fase, suggerisci il prossimo ordine disponibile
       const nextOrder = existingSteps.length > 0
         ? Math.max(...existingSteps.map(s => s.order)) + 1
         : 1;
-      setFormData(prev => ({
-        ...prev,
+      const initialData = {
+        ...formData,
         workid: workId,
         order: nextOrder.toString()
-      }));
+      };
+      setFormData(initialData);
+
+      // Validazione iniziale per nuova fase
+      const errors = {};
+      if (!initialData.name.trim()) errors.name = 'Il nome è obbligatorio';
+      if (!initialData.userid) errors.userid = 'Seleziona un operatore';
+
+      setValidationErrors(errors);
+      setIsValid(Object.keys(errors).length === 0);
     }
   }, [selectedStep, workId, existingSteps]);
 
@@ -126,7 +146,7 @@ const ModalStep = ({ visible, onClose, selectedStep = null, workId }) => {
   });
 
   // Validazione form
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const errors = {};
 
     if (!formData.name.trim()) {
@@ -148,15 +168,20 @@ const ModalStep = ({ visible, onClose, selectedStep = null, workId }) => {
     }
 
     setValidationErrors(errors);
-    setIsValid(Object.keys(errors).length === 0);
-    return Object.keys(errors).length === 0;
-  };
+    const isFormValid = Object.keys(errors).length === 0;
+    setIsValid(isFormValid);
+    return isFormValid;
+  }, [formData]);
+
+  useEffect(() => {
+    validateForm();
+  }, [formData, validateForm]);
+
 
   // Handler per i cambiamenti del form
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setHasUnsavedChanges(true);
-    validateForm();
   };
 
   // Reset del form
