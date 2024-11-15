@@ -6,7 +6,7 @@ const WorkSelect = ({ onSelect, selectedValue, disabled }) => {
   return (
     <SelectComponent
       endpoint={`${API_BASE_URL}/works`}
-      label="lavorazione"
+      label="un valore"
       onSelect={onSelect}
       selectedValue={selectedValue}
       disabled={disabled}

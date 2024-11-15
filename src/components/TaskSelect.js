@@ -1,12 +1,15 @@
 import React from 'react';
 import SelectComponent from './SelectComponent';
+import { API_BASE_URL } from '../constants/config';
 
-const TaskSelect = ({ onSelect }) => {
+const TaskSelect = ({ onSelect, selectedValue, disabled }) => {
   return (
     <SelectComponent
-      endpoint="http://localhost:5000/api/tasks" // L'endpoint per i task
-      label="Task"
+      endpoint={`${API_BASE_URL}/tasks`}
+      label="un valore"
       onSelect={onSelect}
+      selectedValue={selectedValue}
+      disabled={disabled}
     />
   );
 };
