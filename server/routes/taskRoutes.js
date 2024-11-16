@@ -232,4 +232,29 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+router.patch('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { completed } = req.body;
+
+  try {
+    const record = await Task.findByPk(id);
+    if (!record) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Assicurati che completed sia un booleano
+    const updatedRecord = await record.update({
+      completed: Boolean(completed)
+    });
+
+    // Ritorna solo i dati aggiornati
+    res.json(updatedRecord.toJSON());
+  } catch (error) {
+    console.error('Error updating task:', error);
+    res.status(500).json({
+      error: 'Failed to update task',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 module.exports = router;

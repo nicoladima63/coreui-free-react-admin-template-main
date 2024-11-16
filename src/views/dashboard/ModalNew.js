@@ -37,7 +37,7 @@ const CREATION_STATES = {
 
 const ModalNew = ({ visible, onClose, onSave }) => {
   const queryClient = useQueryClient();
-  const { showConfirmDialog } = useConfirmDialog();
+  const { showConfirmDialog,ConfirmDialog } = useConfirmDialog();
   const { showSuccess, showError } = useToast();
 
   const [formData, setFormData] = useState({
@@ -290,6 +290,7 @@ const ModalNew = ({ visible, onClose, onSave }) => {
           )}
         </CButton>
       </CModalFooter>
+      <ConfirmDialog />
     </CModal>
   );
 };

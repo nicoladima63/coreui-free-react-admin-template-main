@@ -1,0 +1,22 @@
+{
+  "id": 12,
+  "senderId": 3,
+  "recipientId": 2,
+  "subject": "5456456",
+  "message": "456456",
+  "priority": "medium",
+  "dueDate": "2024-11-30T21:53:00.000Z",
+  "createdAt": "2024-11-15T21:53:48.654Z",
+  "readAt": null,
+  "completedAt": null,
+  "status": "completed",
+  "type": "general",
+  "relatedTaskId": null,
+  "relatedStepId": null,
+  "updatedAt": "2024-11-15T21:54:35.198Z",
+  "sender": {
+    "id": 3,
+    "name": "adolfo",
+    "email": "adolfo@gmail.com"
+  }
+},

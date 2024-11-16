@@ -1,4 +1,4 @@
-import React, { useEffect, useState,useMemo,useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -31,11 +31,49 @@ import { API_ERROR_MESSAGES } from '../../constants/errorMessages';
 
 // Dashboard.js
 const Dashboard = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showInfo } = useToast();
   const auth = useSelector(state => state.auth);
-  const { isConnected } = useWebSocket();
+  const { isConnected, socket } = useWebSocket();
+
+  useEffect(() => {
+    if (!auth?.user?.id) {
+      navigate('/login');
+      return;
+    }
+
+    // Gestione eventi WebSocket per i messaggi
+    if (socket) {
+      // Evento per nuovo messaggio ricevuto
+      socket.on('newMessage', (message) => {
+        // Mostra notifica toast
+        if (message.recipientId === auth.user.id) {
+          showInfo(`Nuovo messaggio da ${message.senderName}`);
+          // Invalida la query dei messaggi per forzare il refresh
+          queryClient.invalidateQueries([QUERY_KEYS.MESSAGES]);
+        }
+      });
+
+      // Evento per messaggio letto
+      socket.on('messageRead', (messageId) => {
+        // Invalida la query dei messaggi per aggiornare lo stato
+        queryClient.invalidateQueries([QUERY_KEYS.MESSAGES]);
+      });
+
+      // Pulizia listener al dismount
+      return () => {
+        socket.off('newMessage');
+        socket.off('messageRead');
+      };
+    }
+  }, [socket, auth?.user?.id, queryClient, showInfo, navigate]);
+
+  // Se non autenticato, non renderizzare
+  if (!auth?.user?.id) {
+    return null;
+  }
 
   const [selectedFilter, setSelectedFilter] = useState('incomplete');
   const [modalState, setModalState] = useState({
@@ -121,9 +159,18 @@ const Dashboard = () => {
     <CRow>
       {/* Sezione messaggi */}
       <CCol xs={12} xl={2}>
-        <MessagesSection userId={auth.user.id} />
+        <MessagesSection
+          userId={auth.user.id}
+          onNewMessage={(message) => {
+            // Emetti evento WebSocket quando invii un nuovo messaggio
+            socket?.emit('sendMessage', message);
+          }}
+          onMessageRead={(messageId) => {
+            // Emetti evento WebSocket quando leggi un messaggio
+            socket?.emit('markMessageAsRead', messageId);
+          }}
+        />
       </CCol>
-
       {/* Sezione principale */}
       <CCol xs={12} lg={10}>
         <CCard className="mb-4">
@@ -293,24 +340,6 @@ const TaskWidget = ({ task, onOpenSteps }) => {
             {formatDeliveryDate(task.deliveryDate)}
           </CCardText>
 
-          <div className="mt-auto">
-            <div className="d-flex justify-content-between small text-muted mb-1">
-              <span>0</span>
-              <span>{totalSteps}</span>
-            </div>
-
-            <CProgress className="mb-1">
-              <CProgressBar
-                color={getProgressColor()}
-                value={completionPercentage}
-                animated={completionPercentage < 100}
-              />
-            </CProgress>
-
-            <div className="text-center small">
-              Fase {lastCompletedStep} di {totalSteps}
-            </div>
-          </div>
         </CCardBody>
 
         <CCardFooter

@@ -146,33 +146,30 @@ router.patch('/:id/read', authenticate, async (req, res) => {
 // Update todo status
 router.patch('/:id/status', authenticate, async (req, res) => {
   try {
+    const { id } = req.params;
     const { status } = req.body;
-    const todo = await TodoMessage.findOne({
-      where: {
-        id: req.params.id,
-        recipientId: req.user.id
-      }
-    });
 
+    // Validazione
+    if (!status || !['pending', 'read', 'in_progress', 'completed'].includes(status)) {
+      return res.status(400).json({
+        error: 'Stato non valido',
+        validStates: ['pending', 'read', 'in_progress', 'completed']
+      });
+    }
+
+    const todo = await TodoMessage.findByPk(id);
     if (!todo) {
-      return res.status(404).json({ error: 'Todo not found' });
+      return res.status(404).json({ error: 'Todo non trovato' });
     }
 
-    todo.status = status;
-    if (status === 'completed') {
-      todo.completedAt = new Date();
-    }
-    await todo.save();
-
-    // Notifica il mittente del cambio di stato
-    req.io.to(`user_${todo.senderId}`).emit('todo_status_updated', todo);
+    await todo.update({ status });
 
     res.json(todo);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Error updating todo status:', error);
+    res.status(500).json({ error: 'Errore nell\'aggiornamento dello stato' });
   }
 });
-
 // Delete todo (only if you're the sender)
 router.delete('/:id', authenticate, async (req, res) => {
   try {

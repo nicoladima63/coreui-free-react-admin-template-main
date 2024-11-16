@@ -23,13 +23,13 @@ import {
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
 
-import { StepsService } from '../../services/api';
+import { StepsService, TasksService } from '../../services/api';
 import { QUERY_KEYS } from '../../constants/queryKeys';
 
 const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
   const queryClient = useQueryClient();
   const { showError, showSuccess } = useToast();
-  const { showConfirmDialog } = useConfirmDialog();
+  const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
   const [localTask, setLocalTask] = useState(task);
 
   // Aggiorniamo localTask quando cambia task
@@ -50,16 +50,21 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
 
   // Mutation per completare il task
   const completeTaskMutation = useMutation({
-    mutationFn: (taskId) => TasksService.updateTask(taskId, { completed: true }),
+    mutationFn: (taskId) => TasksService.updateTaskStatus(taskId, { completed: true }),
     onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.TASKS]);
       showSuccess('Task completato e archiviato');
       onClose();
     },
     onError: (error) => {
-      showError('Errore durante l\'archiviazione del task');
-    }
+      const errorMessage = error.response?.data?.error || 'Errore sconosciuto';
+      console.error('Error completing task:', errorMessage);
+      showError(`Errore: ${errorMessage}`);
+    },
   });
+
+
+
   const areAllStepsCompleted = useMemo(() => {
     if (!localTask?.steps?.length) return false;
     return localTask.steps.every(step => step.completed);
@@ -233,7 +238,7 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
               className="ms-auto"
               onClick={() => handleArchiveTask(task.id)}
             >
-              <CIcon icon={icon.cilArchive} className="me-1" />
+              <CIcon icon={icon.cilArchive} className="me-2" />
               Archivia Task
             </CButton>
           </CAlert>
@@ -308,6 +313,8 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
           </CAlert>
         )}
       </CModalBody>
+      <ConfirmDialog />
+
     </CModal>
   );
 };

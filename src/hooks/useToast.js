@@ -4,7 +4,9 @@ import { toast } from 'react-toastify';
 import { getErrorMessage } from '../constants/errorMessages';
 
 export const useToast = () => {
+
   const showSuccess = useCallback((message) => {
+    console.log('Toast success:', message);
     toast.success(message, {
       position: 'top-right',
       autoClose: 3000,

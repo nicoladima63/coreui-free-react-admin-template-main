@@ -95,23 +95,21 @@ const App = () => {
     <HashRouter>
       <QueryClientProvider client={queryClient}>
         <WebSocketProvider>
-          <WorksProvider>
-            <Suspense fallback={<LoadingSpinner />}>
-              <AppRoutes />
-              <ToastContainer
-                position="top-right"
-                autoClose={5000}
-                hideProgressBar={false}
-                newestOnTop
-                closeOnClick
-                rtl={false}
-                pauseOnFocusLoss
-                draggable
-                pauseOnHover
-                theme="colored"
-              />
-            </Suspense>
-          </WorksProvider>
+          <Suspense fallback={<LoadingSpinner />}>
+            <AppRoutes />
+            <ToastContainer
+              position="top"
+              autoClose={3000}
+              hideProgressBar={false}
+              newestOnTop
+              closeOnClick={true}
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="colored"
+            />
+          </Suspense>
         </WebSocketProvider>
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>

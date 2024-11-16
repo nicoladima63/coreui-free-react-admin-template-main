@@ -81,7 +81,7 @@ const AppHeader = () => {
             <CNavLink to="/categories" as={NavLink}>Categorie</CNavLink>
           </CNavItem>
           <CNavItem>
-            <CNavLink to="/message" as={NavLink}>Messaggi</CNavLink>
+            <CNavLink to="/todo" as={NavLink}>Todo</CNavLink>
           </CNavItem>
         </CHeaderNav>
         <CHeaderNav className="ms-auto">

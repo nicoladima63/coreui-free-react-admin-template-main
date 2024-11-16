@@ -12,7 +12,6 @@ const Provider = React.lazy(() => import('./views/provider/Provider'))
 const Category = React.lazy(() => import('./views/categories/Category'))
 const Steps = React.lazy(() => import('./views/steps/Steps'))
 const Pcs = React.lazy(() => import('./views/pc/Pc'))
-const Message = React.lazy(() => import('./views/dashboard/SendMessage'))
 // Base
 const Accordion = React.lazy(() => import('./views/base/accordion/Accordion'))
 const Breadcrumbs = React.lazy(() => import('./views/base/breadcrumbs/Breadcrumbs'))
@@ -72,7 +71,6 @@ const routes = [
   { path: '/pcs', name: 'Pcs', element: Pcs, exact: true },
   { path: '/steps', name: 'Steps', element: Steps, exact: true },
   { path: '/categories', name: 'Categorie', element: Category, exact: true },
-  { path: '/message', name: 'Messsaggi', element: Message, exact: true },
   { path: '/theme', name: 'Theme', element: Colors, exact: true },
   { path: '/theme/colors', name: 'Colors', element: Colors },
   { path: '/theme/typography', name: 'Typography', element: Typography },

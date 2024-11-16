@@ -8,16 +8,12 @@ const WebSocketContext = createContext(null);
 
 export const WebSocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
-  const { showSuccess, showError } = useToast();
+  const { showError } = useToast(); // Rimosso showSuccess perché non serve più
   const navigate = useNavigate();
 
   const connectWebSocket = useCallback(() => {
     const token = localStorage.getItem('token');
-
-    if (!token) {
-      //console.log('No token, skipping WebSocket connection');
-      return;
-    }
+    if (!token) return;
 
     try {
       websocketService.connect();
@@ -29,19 +25,18 @@ export const WebSocketProvider = ({ children }) => {
   useEffect(() => {
     const handleConnect = () => {
       setIsConnected(true);
-      //showSuccess('Connesso al server messaggi');
     };
 
     const handleDisconnect = () => {
       setIsConnected(false);
-      //showError('Disconnesso dal server messaggi');
     };
 
     const handleError = (error) => {
-      showError('Errore di connessione: ' + error.message);
       if (error.message === 'Authentication failed') {
         localStorage.removeItem('token');
         navigate('/login');
+      } else {
+        showError('Errore di connessione: ' + error.message);
       }
     };
 
@@ -50,7 +45,7 @@ export const WebSocketProvider = ({ children }) => {
     websocketService.addHandler('disconnect', handleDisconnect);
     websocketService.addHandler('error', handleError);
 
-    // Tenta la connessione solo se c'è un token
+    // Connessione iniziale
     if (localStorage.getItem('token')) {
       connectWebSocket();
     }
@@ -62,9 +57,8 @@ export const WebSocketProvider = ({ children }) => {
       websocketService.removeHandler('disconnect', handleDisconnect);
       websocketService.removeHandler('error', handleError);
     };
-  }, [connectWebSocket, showSuccess, showError, navigate]);
+  }, [connectWebSocket, showError, navigate]);
 
-  // Riconnetti quando il token cambia
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'token') {
@@ -83,12 +77,11 @@ export const WebSocketProvider = ({ children }) => {
 
   useEffect(() => {
     const handleStepNotification = (notification) => {
-      // Usando il hook useToast per mostrare la notifica
-      showSuccess(notification.message, {
+      // Mostra solo notifiche rilevanti
+      showError(notification.message, {
         onClick: () => {
-          // Opzionalmente, puoi navigare alla pagina del task
           navigate(`/tasks/${notification.taskId}`);
-        }
+        },
       });
     };
 
@@ -96,15 +89,14 @@ export const WebSocketProvider = ({ children }) => {
     websocketService.addHandler('stepNotification', handleStepNotification);
 
     return () => {
-      // Rimuovi handler quando il componente viene smontato
       websocketService.removeHandler('stepNotification', handleStepNotification);
     };
-  }, [showSuccess, navigate]);
+  }, [showError, navigate]);
 
   const value = {
     isConnected,
     connect: connectWebSocket,
-    disconnect: () => websocketService.disconnect()
+    disconnect: () => websocketService.disconnect(),
   };
 
   return (

@@ -15,8 +15,6 @@ import {
 } from '@coreui/icons'
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
 
-const auth = useSelector(state => state.auth);
-
 const _nav = [
   {
     component: CNavItem,

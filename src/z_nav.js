@@ -1,51 +1,47 @@
-import React from 'react'
-import CIcon from '@coreui/icons-react'
+import React from 'react';
+import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
 
-const _nav = [
+const getNavigation = (isAuthenticated) => [
   {
-    component: CNavItem,
+    component: 'CNavItem',
     name: 'Dashboard',
     to: '/dashboard',
     icon: <CIcon icon={icon.cilSpeedometer} customClassName="nav-icon" />,
   },
-
   {
-    component: CNavTitle,
+    component: 'CNavTitle',
     name: 'MESSAGGI',
   },
   {
-    component: CNavItem,
+    component: 'CNavItem',
     name: 'Invia Messaggio',
     to: '/todo',
     icon: <CIcon icon={icon.cilCursor} customClassName="nav-icon" />,
   },
-
   {
-    component: CNavTitle,
+    component: 'CNavTitle',
     name: 'AUTH',
   },
   {
-    component: CNavItem,
-    name: 'Login',
-    to: '/login',
+    component: 'CNavItem',
+    name: isAuthenticated ? 'Logout' : 'Login',
+    to: isAuthenticated ? '/logout' : '/login',
     icon: <CIcon icon={icon.cilUser} customClassName="nav-icon" />,
   },
-
   {
-    component: CNavTitle,
+    component: 'CNavTitle',
     name: 'FLUSSI DI LAVORO',
   },
   {
-    component: CNavItem,
+    component: 'CNavItem',
     name: 'Lavorazioni',
     to: '/works',
     icon: <CIcon icon={icon.cilNotes} customClassName="nav-icon" />,
   },
-
   {
-    component: CNavItem,
+    component: 'CNavItem',
     name: 'Utenti',
     to: '/users',
     icon: <CIcon icon={icon.cilUser} customClassName="nav-icon" />,
@@ -67,8 +63,9 @@ const _nav = [
     name: 'Tasks',
     to: '/tasks',
     icon: <CIcon icon={icon.cilNotes} customClassName="nav-icon" />,
+
   },
 
 ]
 
-export default _nav
+export default getNavigation;

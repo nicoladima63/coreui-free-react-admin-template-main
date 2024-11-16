@@ -11,6 +11,7 @@ import {
   CBadge,
   CSpinner,
   CAlert,
+  CButton,
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
@@ -21,6 +22,7 @@ import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { QUERY_KEYS } from '../../constants/queryKeys';
 
 const MessageItem = React.memo(({ message, onClick, isLoading }) => {
+  const isRead = !!message.readAt || message.status === 'read';
 
   const handleClick = (e) => {
     e.preventDefault();
@@ -33,7 +35,7 @@ const MessageItem = React.memo(({ message, onClick, isLoading }) => {
       onClick={handleClick}
       className={`
         message-item d-flex align-items-start p-3 border-bottom border-dark
-        ${!message.read ? 'message-unread' : ''}
+        ${!isRead ? 'message-unread' : ''}
       `}
       style={{
         backgroundColor: 'var(--cui-dark)',
@@ -50,16 +52,16 @@ const MessageItem = React.memo(({ message, onClick, isLoading }) => {
     >
 
       {/* Icona Messaggio */}
-      <div className="message-icon me-3">
+      <div className="message-icon me-2">
         <div className={`
           rounded-circle d-flex align-items-center justify-content-center
           ${message.type === 'step_notification' ? 'bg-info-subtle' : 'bg-primary-subtle'}
         `}
-          style={{ width: '40px', height: '40px' }}>
+        >
           <CIcon
-            icon={message.type === 'step_notification' ? icon.cilBell : icon.cilEnvelopeClosed}
+            icon={message.type === 'step_notification' ? icon.cilBell : icon.cilEnvelopeLetter}
             className="text-light"
-            size="lg"
+            size="sm"
           />
         </div>
       </div>
@@ -68,10 +70,10 @@ const MessageItem = React.memo(({ message, onClick, isLoading }) => {
       <div className="flex-grow-1 min-width-0">
         <div className="d-flex justify-content-between align-items-start mb-1">
           <div className="d-flex align-items-center">
-            {!message.read && (
+            {!isRead && (
               <CBadge
                 className="me-2"
-                color="primary"
+                color="info"
                 shape="rounded-pill"
               >
                 Nuovo
@@ -82,21 +84,21 @@ const MessageItem = React.memo(({ message, onClick, isLoading }) => {
                 color="danger"
                 shape="rounded-pill"
               >
-                Priorità Alta
+                Urgente
               </CBadge>
             )}
           </div>
-          <small className="text-medium-emphasis ms-2">
-            {formatTimeAgo(message.createdAt)}
-          </small>
         </div>
+        <small className="text-medium-emphasis ms-2">
+          {formatTimeAgo(message.createdAt)}
+        </small>
 
         <h6 className="mb-1 text-light">
-          {message.type === 'step_notification' ? 'Notifica Step' : message.from?.name}
+          {message.type === 'step_notification' ? 'Notifica Step' : message.sender?.name} scrive:
         </h6>
 
         <p className="mb-0 text-medium-emphasis">
-          {message.content}
+          {message.message}
         </p>
       </div>
     </div>
@@ -152,8 +154,93 @@ const MessagesSection = ({ userId }) => {
   const { showConfirmDialog } = useConfirmDialog();
   const { showSuccess, showError } = useToast();
   const [isConnected, setIsConnected] = useState(false);
-
+  const [showReadMessages, setShowReadMessages] = useState(false);
   const [processingMessageId, setProcessingMessageId] = useState(null);
+
+  // WebSocket setup migliorato
+  useEffect(() => {
+    websocketService.connect();
+
+    const handlers = {
+      connect: () => {
+        setIsConnected(true);
+      },
+      disconnect: () => {
+        setIsConnected(false);
+      },
+      newTodoMessage: (message) => {
+        queryClient.invalidateQueries([QUERY_KEYS.TODOS]);
+        showSuccess(`Nuovo messaggio da ${message.sender?.name || 'Sistema'}`);
+      },
+      todoMessageRead: (data) => {
+        queryClient.setQueryData([QUERY_KEYS.TODOS], old => {
+          if (!Array.isArray(old)) return old;
+          return old.map(todo =>
+            todo.id === data.messageId
+              ? { ...todo, readAt: data.readAt, status: 'read' }
+              : todo
+          );
+        });
+      }
+    };
+
+    Object.entries(handlers).forEach(([event, handler]) => {
+      websocketService.addHandler(event, handler);
+    });
+
+    return () => {
+      Object.keys(handlers).forEach(event => {
+        websocketService.removeHandler(event);
+      });
+      websocketService.disconnect();
+    };
+  }, [queryClient, showSuccess, showError]);
+
+  const markAsReadMutation = useMutation({
+    mutationFn: async (todoId) => {
+      // Chiama l'API per segnare come letto
+      const result = await TodoService.markAsRead(todoId);
+
+      // Invia l'evento WebSocket
+      websocketService.send({
+        type: 'markTodoMessageRead',
+        messageId: todoId
+      });
+
+      return result;
+    },
+    onMutate: async (todoId) => {
+      // Aggiornamento ottimistico
+      const previousTodos = queryClient.getQueryData([QUERY_KEYS.TODOS]);
+
+      queryClient.setQueryData([QUERY_KEYS.TODOS], old => {
+        if (!Array.isArray(old)) return old;
+        return old.map(todo =>
+          todo.id === todoId
+            ? {
+              ...todo,
+              readAt: new Date().toISOString(),
+              status: 'read'
+            }
+            : todo
+        );
+      });
+
+      return { previousTodos };
+    },
+    onError: (err, todoId, context) => {
+      queryClient.setQueryData([QUERY_KEYS.TODOS], context.previousTodos);
+      showError('Errore nel segnare il messaggio come letto');
+    },
+    onSuccess: (updatedTodo) => {
+      showSuccess('Messaggio segnato come letto');
+      queryClient.invalidateQueries([QUERY_KEYS.TODOS]);
+    },
+    onSettled: () => {
+      setProcessingMessageId(null);
+    }
+  });
+
   // Funzione di validazione dei messaggi
   const validateMessage = useCallback((message) => {
     if (!message) return false;
@@ -164,7 +251,8 @@ const MessagesSection = ({ userId }) => {
       from: message.from || { name: 'Sistema' },
       content: message.content || 'Nessun contenuto',
       createdAt: message.createdAt || new Date().toISOString(),
-      read: !!message.read
+      readAt: message.readAt || null,
+      status: message.status || 'pending'
     };
   }, []);
 
@@ -183,78 +271,43 @@ const MessagesSection = ({ userId }) => {
   });
 
   // Computed values con validazione
+  // MessagesSection.js
   const sortedTodos = useMemo(() => {
     if (!Array.isArray(todos)) return [];
 
     return [...todos]
       .map(validateMessage)
       .filter(Boolean)
+      .filter(todo => showReadMessages ? true : (!todo.readAt && todo.status !== 'read'))
       .sort((a, b) => {
-        if (a.read !== b.read) return a.read ? 1 : -1;
+        if (!showReadMessages && (a.readAt !== b.readAt)) {
+          return a.readAt ? 1 : -1;
+        }
         return new Date(b.createdAt) - new Date(a.createdAt);
       });
-  }, [todos, validateMessage]);
-
+  }, [todos, validateMessage, showReadMessages]);
   // Conteggio messaggi non letti
   const unreadCount = useMemo(() => {
     if (!Array.isArray(todos)) return 0;
-    return todos.filter(message => message && !message.read).length;
+    return todos.filter(message =>
+      message && !message.readAt && message.status !== 'read'
+    ).length;
   }, [todos]);
 
-  // Mutation per segnare come letto
-  const markAsReadMutation = useMutation({
-    mutationFn: TodoService.markAsRead,
-    onSuccess: (_, messageId) => {
-      queryClient.invalidateQueries([QUERY_KEYS.TODOS]);
-      showSuccess('Messaggio segnato come letto');
-      setProcessingMessageId(null);
-    },
-    onError: (error) => {
-      showError(error);
-      setProcessingMessageId(null);
-    }
-  });
-  // WebSocket setup
-  useEffect(() => {
-    websocketService.connect();
-
-    const handlers = {
-      connect: () => {
-        setIsConnected(true);
-        showSuccess('Connesso al server messaggi');
-      },
-      disconnect: () => {
-        setIsConnected(false);
-        showError('Disconnesso dal server messaggi');
-      },
-      notification: (notification) => {
-        if (notification.action === 'new_todo') {
-          queryClient.invalidateQueries([QUERY_KEYS.TODOS]);
-          showSuccess(`Nuovo messaggio da ${notification.data?.senderName || 'Sistema'}`);
-        }
-      }
-    };
-
-    Object.entries(handlers).forEach(([event, handler]) => {
-      websocketService.addHandler(event, handler);
-    });
-
-    return () => {
-      websocketService.disconnect();
-    };
-  }, [queryClient, showSuccess, showError]);
 
   // Handlers
   const handleMarkAsRead = useCallback(async (message) => {
-    if (!message?.id || message.read || processingMessageId) return;
+    if (!message?.id || message.status === 'read' || processingMessageId) {
+      return;
+    }
 
     try {
       setProcessingMessageId(message.id);
       await markAsReadMutation.mutateAsync(message.id);
     } catch (error) {
-      showError('Errore nel segnare il messaggio come letto');
+      console.error('Error marking message as read:', error);
     }
-  }, [markAsReadMutation, processingMessageId, showError]);
+  }, [markAsReadMutation, processingMessageId]);
 
   const handleMessageClick = useCallback(async (message) => {
     if (!message?.id || processingMessageId) return;
@@ -269,30 +322,22 @@ const MessagesSection = ({ userId }) => {
           confirmColor: 'primary'
         });
 
-        // Segna sempre come letto
-        await handleMarkAsRead(message);
+        // Prima segniamo sempre come letto
+        await markAsReadMutation.mutateAsync(message.id);
 
         // Se confermato e abbiamo un ID del task, naviga
         if (confirmed && message.relatedTaskId) {
           navigate(`/tasks/${message.relatedTaskId}`);
         }
       } else {
-        // Per i messaggi normali, chiedi conferma per segnare come letto
-        const confirmed = await showConfirmDialog({
-          title: 'Conferma lettura',
-          message: 'Vuoi segnare questo messaggio come letto?',
-          confirmText: 'Segna come letto',
-          cancelText: 'Annulla'
-        });
-
-        if (confirmed) {
-          await handleMarkAsRead(message);
-        }
+        // Per i messaggi normali, segniamo direttamente come letto
+        await markAsReadMutation.mutateAsync(message.id);
       }
     } catch (error) {
       showError('Errore nella gestione del messaggio');
     }
-  }, [processingMessageId, showConfirmDialog, handleMarkAsRead, navigate, showError]);
+  }, [processingMessageId, showConfirmDialog, markAsReadMutation, navigate, showError]);
+
 
   // Renderers
   const renderMessageIcon = useCallback((message) => {
@@ -356,34 +401,46 @@ const MessagesSection = ({ userId }) => {
   return (
     <CCard className="h-100">
       <CCardHeader>
+        {/* Prima riga: titolo e bottone filtro */}
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <h5 className="mb-0">Centro Notifiche</h5>
+          <CButton
+            color="link"
+            onClick={() => setShowReadMessages(prev => !prev)}
+            className="p-0" // Rimuove il padding extra del bottone
+          >
+            {showReadMessages ? 'Nascondi letti' : 'Mostra tutti'}
+          </CButton>
+        </div>
+
+        {/* Seconda riga: badge di connessione e contatore messaggi */}
         <div className="d-flex justify-content-between align-items-center">
-          <div className="d-flex align-items-center">
-            <h5 className="mb-0 me-3">Centro Notifiche</h5>
-            <CBadge
-              color={isConnected ? 'success' : 'danger'}
-              className="d-flex align-items-center px-2"
-              shape="rounded-pill"
-            >
-              <CIcon
-                icon={isConnected ? icon.cilCheckCircle : icon.cilWarning}
-                size="sm"
-                className="me-1"
-              />
-              {isConnected ? 'Online' : 'Offline'}
-            </CBadge>
-          </div>
+
           {unreadCount > 0 && (
             <CBadge
               color="primary"
               shape="rounded-pill"
-              className="px-3"
+              className="px-2"
             >
               {unreadCount} {unreadCount === 1 ? 'nuovo' : 'nuovi'}
             </CBadge>
           )}
+
+          <CBadge
+            color={isConnected ? 'success' : 'danger'}
+            className="d-flex align-items-center px-2"
+            shape="rounded-pill"
+          >
+            <CIcon
+              icon={isConnected ? icon.cilCheckCircle : icon.cilWarning}
+              size="sm"
+              className="me-1"
+            />
+            {isConnected ? 'Online' : 'Offline'}
+          </CBadge>
+
         </div>
       </CCardHeader>
-
       <div className="messages-container position-relative">
         {isLoading ? (
           <div className="text-center p-4">

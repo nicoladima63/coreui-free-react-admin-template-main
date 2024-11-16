@@ -179,7 +179,15 @@ export const TasksService = {
     } catch (cleanupError) {
       console.error('Cleanup failed for task:', taskId, cleanupError);
     }
-  }
+  },
+
+  updateTaskStatus: async (id, completed) => {
+    const response = await apiClient.patch(`/tasks/${id}`, { completed });
+    return response.data;
+  },
+
+
+
 };
 
 // Servizio per gestire i works
@@ -298,31 +306,6 @@ export const WorksService = {
     }
   },
 
-  treorderSteps2: async (data) => {
-    // Estrai workId e steps dall'oggetto data
-    const { workId, steps } = data;
-
-    // Log per verificare i dati
-    console.log("api.js workId:", workId);
-    console.log("api.js steps:", steps);
-
-    try {
-      // Fai la chiamata PATCH passando workId e steps
-      const response = await apiClient.patch(`/works/${workId}/reorder-steps`, { steps });
-
-      // Assicurati che la risposta contenga i passi aggiornati
-      return {
-        success: true,
-        data: response.data.steps,  // Usa response.data.steps se il server lo restituisce così
-        message: 'Steps reordered successfully'
-      };
-    } catch (error) {
-      throw {
-        message: error.response?.data?.error || 'Failed to reorder steps',
-        code: error.response?.status || 500
-      };
-    }
-  },
   reorderSteps: async (data) => {
     try {
       // Invia tutto l'array di passi con il nuovo ordine
@@ -465,36 +448,6 @@ export const MessageService = {
 //  markAsRead: (id) => apiClient.patch(`/todos/${id}/read`),
 //};
 
-export const TodoService3 = {
-  getTodos: () => apiClient.get('/todos'),
-  getTodosSent: async () => {
-    try {
-      const response = await apiClient.get('/todos/sent');
-      return response;
-    } catch (error) {
-      console.error('Error fetching sent todos:', error.response?.data || error.message);
-      throw error;
-    }
-  },
-  getTodosReceived: async () => {
-    try {
-      const response = await apiClient.get('/todos/received');
-      return response;
-    } catch (error) {
-      console.error('Error fetching received todos:', error.response?.data || error.message);
-      throw error;
-    }
-  },
-  updateTodoStatus: async ({ id, status }) => {
-    try {
-      const response = await apiClient.patch(`/todos/${id}/status`, { status });
-      return response;
-    } catch (error) {
-      console.error('Error updating todo status:', error.response?.data || error.message);
-      throw error;
-    }
-  }
-};
 
 export const TodoService = {
   getTodos: () => apiClient.get('/todos'),

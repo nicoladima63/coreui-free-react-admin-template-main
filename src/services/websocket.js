@@ -28,43 +28,89 @@ class WebSocketService {
 
       this.ws.onclose = (event) => {
         this._notifyHandlers('disconnect');
+        this._attemptReconnect();
       };
+
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          this._notifyHandlers(data.type, data);
+
+          // Gestione specifica per i TodoMessages
+          if (data.type === 'newTodoMessage') {
+            this._notifyHandlers('newTodoMessage', data.message);
+          } else if (data.type === 'todoMessageRead') {
+            this._notifyHandlers('todoMessageRead', {
+              messageId: data.messageId,
+              readAt: data.readAt
+            });
+          } else {
+            // Gestione generale per altri tipi di messaggi
+            this._notifyHandlers(data.type, data);
+          }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }
       };
 
     } catch (error) {
-      console.log('3c. Errore durante la creazione della connessione:', error);
+      console.error('Error creating WebSocket connection:', error);
+      this._attemptReconnect();
     }
   }
 
+  // Il metodo esistente per i tentativi di riconnessione rimane invariato
   _attemptReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       setTimeout(() => {
         console.log(`Attempting reconnection ${this.reconnectAttempts}...`);
         this.connect();
-      }, 3000); // Riprova ogni 3 secondi
+      }, 3000);
     }
   }
 
-  sendMessage(to, content) {
+  // Metodo generico per l'invio di messaggi
+  send(message) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket not connected');
     }
 
-    this.ws.send(JSON.stringify({
+    this.ws.send(JSON.stringify(message));
+  }
+
+  // Il metodo specifico per i messaggi chat rimane per retrocompatibilità
+  sendMessage(to, content) {
+    this.send({
       type: 'chat',
       to,
       content
-    }));
+    });
   }
 
+  // Nuovo metodo per segnare un messaggio come letto
+  markTodoMessageAsRead(messageId) {
+    this.send({
+      type: 'markTodoMessageRead',
+      messageId
+    });
+  }
+
+  // Nuovo metodo per inviare un TodoMessage
+  sendTodoMessage(recipientId, subject, content, options = {}) {
+    this.send({
+      type: 'todoMessage',
+      recipientId,
+      subject,
+      content,
+      priority: options.priority || 'normal',
+      messageType: options.messageType || 'general',
+      taskId: options.taskId,
+      stepId: options.stepId,
+      dueDate: options.dueDate
+    });
+  }
+
+  // I metodi per la gestione degli handler rimangono invariati
   addHandler(event, handler) {
     if (!this.handlers.has(event)) {
       this.handlers.set(event, new Set());
