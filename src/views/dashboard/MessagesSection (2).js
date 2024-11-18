@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { websocketService } from '../../services/websocket';
+
 import {
   CCard,
   CCardHeader,
@@ -15,6 +15,7 @@ import {
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
+import { websocketService } from '../../services/websocket';
 import { UsersService, TodoService } from '../../services/api';
 import { useToast } from '../../hooks/useToast';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
@@ -158,140 +159,160 @@ const MessagesSection = ({ userId }) => {
 
   // WebSocket setup migliorato
   useEffect(() => {
-    let mounted = true;
+    websocketService.connect();
 
     const handlers = {
       connect: () => {
-        if (mounted) {
-          setIsConnected(true);
-          queryClient.invalidateQueries([QUERY_KEYS.TODOS, 'received', userId]);
-        }
+        setIsConnected(true);
       },
-
       disconnect: () => {
-        if (mounted) setIsConnected(false);
+        setIsConnected(false);
       },
-
       newTodoMessage: (message) => {
-        if (!mounted || message.recipientId !== userId) return;
-
-        queryClient.setQueryData([QUERY_KEYS.TODOS, 'received', userId], old => {
-          const oldMessages = Array.isArray(old) ? old : [];
-          // Evita duplicati
-          if (oldMessages.some(m => m.id === message.id)) return oldMessages;
-          return [message, ...oldMessages];
-        });
-
-        if (message.priority === 'high') {
-          showSuccess({
-            title: 'Nuovo messaggio urgente',
-            message: message.subject,
-            duration: 5000
-          });
-        } else {
-          showSuccess({
-            title: 'Nuovo messaggio',
-            message: message.subject
-          });
-        }
+        queryClient.invalidateQueries([QUERY_KEYS.TODOS]);
+        showSuccess(`Nuovo messaggio da ${message.sender?.name || 'Sistema'}`);
       },
-
-      todoMessageRead: (update) => {
-        if (!mounted) return;
-        queryClient.setQueryData([QUERY_KEYS.TODOS, 'received', userId], old => {
+      todoMessageRead: (data) => {
+        queryClient.setQueryData([QUERY_KEYS.TODOS], old => {
           if (!Array.isArray(old)) return old;
-          return old.map(msg =>
-            msg.id === update.messageId
-              ? { ...msg, status: 'read', readAt: update.readAt }
-              : msg
+          return old.map(todo =>
+            todo.id === data.messageId
+              ? { ...todo, readAt: data.readAt, status: 'read' }
+              : todo
           );
         });
       }
     };
 
-    // Registra gli handlers
     Object.entries(handlers).forEach(([event, handler]) => {
       websocketService.addHandler(event, handler);
     });
 
-    // Connetti solo se non già connesso
-    if (!isConnected) {
-      try {
-        websocketService.connect();
-      } catch (error) {
-        console.error('WebSocket connection error:', error);
-      }
-    }
-
-    // Cleanup
     return () => {
-      mounted = false;
-      Object.entries(handlers).forEach(([event, handler]) => {
-        websocketService.removeHandler(event, handler);
+      Object.keys(handlers).forEach(event => {
+        websocketService.removeHandler(event);
       });
+      websocketService.disconnect();
     };
-  }, [userId, queryClient, showSuccess]); // Rimosso isConnected dalle dipendenze
+  }, [queryClient, showSuccess, showError]);
 
-  // Query principale per i messaggi
+  const markAsReadMutation = useMutation({
+    mutationFn: async (todoId) => {
+      // Chiama l'API per segnare come letto
+      const result = await TodoService.markAsRead(todoId);
+
+      // Invia l'evento WebSocket
+      websocketService.send({
+        type: 'markTodoMessageRead',
+        messageId: todoId
+      });
+
+      return result;
+    },
+    onMutate: async (todoId) => {
+      // Aggiornamento ottimistico
+      const previousTodos = queryClient.getQueryData([QUERY_KEYS.TODOS]);
+
+      queryClient.setQueryData([QUERY_KEYS.TODOS], old => {
+        if (!Array.isArray(old)) return old;
+        return old.map(todo =>
+          todo.id === todoId
+            ? {
+              ...todo,
+              readAt: new Date().toISOString(),
+              status: 'read'
+            }
+            : todo
+        );
+      });
+
+      return { previousTodos };
+    },
+    onError: (err, todoId, context) => {
+      queryClient.setQueryData([QUERY_KEYS.TODOS], context.previousTodos);
+      showError('Errore nel segnare il messaggio come letto');
+    },
+    onSuccess: (updatedTodo) => {
+      showSuccess('Messaggio segnato come letto');
+      queryClient.invalidateQueries([QUERY_KEYS.TODOS]);
+    },
+    onSettled: () => {
+      setProcessingMessageId(null);
+    }
+  });
+
+  // Funzione di validazione dei messaggi
+  const validateMessage = useCallback((message) => {
+    if (!message) return false;
+    return {
+      ...message,
+      id: message.id || Math.random(),
+      type: message.type || 'generic',
+      from: message.from || { name: 'Sistema' },
+      content: message.content || 'Nessun contenuto',
+      createdAt: message.createdAt || new Date().toISOString(),
+      readAt: message.readAt || null,
+      status: message.status || 'pending'
+    };
+  }, []);
+
+  // Query per i todos con configurazione ottimizzata
   const {
     data: todos = [],
     isLoading,
     error,
     isFetching
   } = useQuery({
-    queryKey: [QUERY_KEYS.TODOS, 'received', userId],
+    queryKey: [QUERY_KEYS.TODOS],
     queryFn: TodoService.getTodosReceived,
-    refetchInterval: isConnected ? false : 30000,
     staleTime: 30000,
     cacheTime: 5 * 60 * 1000,
-    enabled: !!userId,
-    onError: (error) => {
-      showError('Errore nel caricamento dei messaggi');
-    }
+    refetchOnWindowFocus: true,
   });
 
-  // Mutation per segnare come letto
-  const markAsReadMutation = useMutation({
-    mutationFn: async (messageId) => {
-      const result = await TodoService.markAsRead(messageId);
+  // Computed values con validazione
+  // MessagesSection.js
+  const sortedTodos = useMemo(() => {
+    if (!Array.isArray(todos)) return [];
 
-      if (isConnected) {
-        websocketService.send({
-          type: 'markTodoMessageRead',
-          messageId,
-          readAt: new Date().toISOString()
-        });
-      }
-
-      return result;
-    },
-    onMutate: async (messageId) => {
-      await queryClient.cancelQueries([QUERY_KEYS.TODOS, 'received', userId]);
-      const previousTodos = queryClient.getQueryData([QUERY_KEYS.TODOS, 'received', userId]);
-
-      queryClient.setQueryData([QUERY_KEYS.TODOS, 'received', userId], old => {
-        if (!Array.isArray(old)) return old;
-        return old.map(msg =>
-          msg.id === messageId
-            ? { ...msg, readAt: new Date().toISOString(), status: 'read' }
-            : msg
-        );
+    return [...todos]
+      .map(validateMessage)
+      .filter(Boolean)
+      .filter(todo => showReadMessages ? true : (!todo.readAt && todo.status !== 'read'))
+      .sort((a, b) => {
+        if (!showReadMessages && (a.readAt !== b.readAt)) {
+          return a.readAt ? 1 : -1;
+        }
+        return new Date(b.createdAt) - new Date(a.createdAt);
       });
+  }, [todos, validateMessage, showReadMessages]);
+  // Conteggio messaggi non letti
+  const unreadCount = useMemo(() => {
+    if (!Array.isArray(todos)) return 0;
+    return todos.filter(message =>
+      message && !message.readAt && message.status !== 'read'
+    ).length;
+  }, [todos]);
 
-      return { previousTodos };
-    },
-    onError: (err, messageId, context) => {
-      queryClient.setQueryData([QUERY_KEYS.TODOS, 'received', userId], context.previousTodos);
-      showError('Errore nel segnare il messaggio come letto');
+
+  // Handlers
+  const handleMarkAsRead = useCallback(async (message) => {
+    if (!message?.id || message.status === 'read' || processingMessageId) {
+      return;
     }
-  });
 
-  // Handler per click sul messaggio
+    try {
+      setProcessingMessageId(message.id);
+      await markAsReadMutation.mutateAsync(message.id);
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+    }
+  }, [markAsReadMutation, processingMessageId]);
+
   const handleMessageClick = useCallback(async (message) => {
     if (!message?.id || processingMessageId) return;
 
     try {
-      setProcessingMessageId(message.id);
       if (message.type === 'step_notification') {
         const confirmed = await showConfirmDialog({
           title: 'Notifica step',
@@ -301,35 +322,81 @@ const MessagesSection = ({ userId }) => {
           confirmColor: 'primary'
         });
 
+        // Prima segniamo sempre come letto
         await markAsReadMutation.mutateAsync(message.id);
 
+        // Se confermato e abbiamo un ID del task, naviga
         if (confirmed && message.relatedTaskId) {
           navigate(`/tasks/${message.relatedTaskId}`);
         }
       } else {
+        // Per i messaggi normali, segniamo direttamente come letto
         await markAsReadMutation.mutateAsync(message.id);
       }
     } catch (error) {
       showError('Errore nella gestione del messaggio');
-    } finally {
-      setProcessingMessageId(null);
     }
   }, [processingMessageId, showConfirmDialog, markAsReadMutation, navigate, showError]);
 
-  // Computed values
-  const sortedTodos = useMemo(() => {
-    if (!Array.isArray(todos)) return [];
 
-    return [...todos]
-      .filter(todo => showReadMessages ? true : (!todo.readAt && todo.status !== 'read'))
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }, [todos, showReadMessages]);
+  // Renderers
+  const renderMessageIcon = useCallback((message) => {
+    if (markAsReadMutation.isLoading && markAsReadMutation.variables === message?.id) {
+      return <CSpinner size="sm" />;
+    }
 
-  const unreadCount = useMemo(() => {
-    return todos.filter(message => !message?.readAt && message?.status !== 'read').length;
-  }, [todos]);
+    if (!message?.read) {
+      return message.type === 'step_notification'
+        ? <CIcon icon={icon.cilBell} className="text-warning" />
+        : <CIcon icon={icon.cilEnvelopeClosed} className="text-primary" />;
+    }
 
+    return message.type === 'step_notification'
+      ? <CIcon icon={icon.cilBellExclamation} className="text-muted" />
+      : <CIcon icon={icon.cilEnvelopeLetter} className="text-muted" />;
+  }, [markAsReadMutation]);
 
+  const renderMessageContent = useCallback((message) => {
+    if (!message) return null;
+
+    const senderName = message.from?.name || 'Sistema';
+    const messageTitle = message.type === 'step_notification'
+      ? 'Notifica Step'
+      : `Da: ${senderName}`;
+
+    return (
+      <div className="d-flex justify-content-between align-items-start">
+        <div className="flex-grow-1">
+          <div className="d-flex align-items-center mb-1">
+            <strong className="me-2">{messageTitle}</strong>
+            {!message.read && (
+              <CBadge
+                color={message.type === 'step_notification' ? 'info' : 'danger'}
+                shape="rounded-pill"
+              >
+                Nuovo
+              </CBadge>
+            )}
+            {message.priority === 'high' && (
+              <CBadge color="danger" shape="rounded-pill" className="ms-2">
+                Alta Priorità
+              </CBadge>
+            )}
+          </div>
+          <div className="text-muted small">
+            {message.createdAt
+              ? new Date(message.createdAt).toLocaleString('it-IT')
+              : 'Data non disponibile'
+            }
+          </div>
+          <div className="mt-2">{message.content || 'Nessun contenuto'}</div>
+        </div>
+        <div className="ms-3">
+          {renderMessageIcon(message)}
+        </div>
+      </div>
+    );
+  }, [renderMessageIcon]);
 
   return (
     <CCard className="h-100">
@@ -388,27 +455,29 @@ const MessagesSection = ({ userId }) => {
         ) : sortedTodos.length === 0 ? (
           <div className="text-center p-4">
             <div className="text-medium-emphasis mb-3">
-              <CIcon icon={icon.cilInbox} size="3xl" className="opacity-50" />
+              <CIcon
+                icon={icon.cilInbox}
+                size="3xl"
+                className="opacity-50"
+              />
             </div>
             <h6>Nessun messaggio</h6>
             <p className="text-medium-emphasis small mb-0">
-              {isConnected ?
-                'I nuovi messaggi appariranno qui' :
-                'Riconnessione in corso...'}
+              I nuovi messaggi appariranno qui
             </p>
           </div>
         ) : (
           <div className="messages-list">
             {sortedTodos.map((message) => (
               <MessageItem
-                key={message.id}
+                key={message?.id || Math.random()}
                 message={message}
                 onClick={handleMessageClick}
-                isLoading={processingMessageId === message.id}
+                isLoading={processingMessageId === message?.id}
               />
             ))}
-          </div>
-        )}
+          </div>)}
+
         {isFetching && !isLoading && (
           <div className="text-center p-2 border-top">
             <small className="text-medium-emphasis">

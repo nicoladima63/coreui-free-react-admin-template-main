@@ -1,24 +1,78 @@
-// websocket/WebSocketManager.js
+// server/websocket/WebSocketManager.js
 const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
 const db = require('../models');
+const { connectionManager } = require('./ConnectionManager');
+
 class WebSocketManager {
   constructor() {
-    this.clients = new Map();
+    this.wss = null;
   }
 
   initialize(server) {
     this.wss = new WebSocket.Server({
       server,
-      // Aggiungi questo per vedere i dettagli della richiesta
       verifyClient: (info, cb) => {
         cb(true);
       }
     });
-    this.wss.on('connection', this.handleConnection.bind(this));
-  }
-  async handleConnection(ws, req) {
 
+    this.wss.on('connection', this.handleConnection.bind(this));
+
+    // Opzionale: setup pulizia periodica delle connessioni morte
+    setInterval(() => {
+      connectionManager.cleanupDeadConnections();
+    }, 30000); // ogni 30 secondi
+  }
+
+  async handleTodoMessage(fromUserId, message) {
+    try {
+      // Salva il messaggio nel DB
+      const newTodo = await db.TodoMessage.create({
+        senderId: fromUserId,
+        recipientId: message.recipientId,
+        subject: message.subject,
+        message: message.message,
+        priority: message.priority,
+        dueDate: message.dueDate,
+        status: 'pending'
+      });
+
+      // Recupera info complete
+      const todoWithRelations = await db.TodoMessage.findByPk(newTodo.id, {
+        include: [
+          { model: db.User, as: 'sender', attributes: ['id', 'name'] },
+          { model: db.User, as: 'recipient', attributes: ['id', 'name'] }
+        ]
+      });
+
+      // Invia al destinatario
+      const recipientWs = this.clients.get(message.recipientId);
+      if (recipientWs) {
+        recipientWs.send(JSON.stringify({
+          type: 'newTodoMessage',
+          message: todoWithRelations
+        }));
+      }
+
+      // Conferma al mittente
+      const senderWs = this.clients.get(fromUserId);
+      if (senderWs) {
+        senderWs.send(JSON.stringify({
+          type: 'messageSent',
+          messageId: newTodo.id,
+          timestamp: newTodo.createdAt
+        }));
+      }
+
+      return newTodo;
+    } catch (error) {
+      console.error('Error handling todo message:', error);
+      throw error;
+    }
+  }
+
+  async handleConnection(ws, req) {
     try {
       // Estrai il token dall'URL della richiesta WebSocket
       const token = new URLSearchParams(req.url.slice(1)).get('token');
@@ -30,26 +84,39 @@ class WebSocketManager {
 
       // Verifica il token
       const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-      ws.userId = decoded.id;
-      ws.pcId = decoded.pc_id; // Aggiungi il pc_id se lo usi
 
-      // Aggiorna stato utente
-      await db.User.update(
-        { online: true },
-        { where: { id: ws.userId } }
+      // Raccoglie informazioni sulla connessione
+      const connectionInfo = {
+        pcId: decoded.pc_id,
+        pcName: req.headers['x-pc-name'] || 'Unknown PC',
+        userAgent: req.headers['user-agent'],
+        ip: req.socket.remoteAddress
+      };
+
+      // Registra la connessione
+      const connectionId = connectionManager.registerConnection(
+        decoded.id,
+        ws,
+        connectionInfo
       );
 
-      // Salva la connessione
-      this.clients.set(ws.userId, ws);
+      // Aggiorna stato utente nel DB
+      await db.User.update(
+        { online: true },
+        { where: { id: decoded.id } }
+      );
 
-      // Notifica altri utenti
-      this.broadcastUserStatus(ws.userId, true);
+      // Associa l'ID connessione al WebSocket
+      ws.connectionId = connectionId;
+
+      // Broadcast dello stato utente
+      this.broadcastUserStatus(decoded.id, true);
 
       // Gestione messaggi in arrivo
       ws.on('message', async (data) => {
         try {
           const message = JSON.parse(data);
-          await this.handleMessage(ws, message);
+          await this.handleMessage(ws, message, decoded.id);
         } catch (error) {
           ws.send(JSON.stringify({
             type: 'error',
@@ -60,13 +127,18 @@ class WebSocketManager {
 
       // Gestione disconnessione
       ws.on('close', async () => {
-        await this.handleDisconnection(ws.userId);
+        connectionManager.removeConnection(ws.connectionId);
+        await this.handleDisconnection(decoded.id);
       });
 
       // Invia conferma connessione
       ws.send(JSON.stringify({
         type: 'connected',
-        userId: ws.userId
+        userId: decoded.id,
+        deviceInfo: connectionInfo,
+        stats: {
+          activeConnections: connectionManager.getUserConnections(decoded.id).length
+        }
       }));
 
     } catch (error) {
@@ -75,14 +147,14 @@ class WebSocketManager {
     }
   }
 
-  async handleMessage(ws, message) {
+  async handleMessage(ws, message, userId) {
     try {
       switch (message.type) {
         case 'chat':
-          await this.handleChatMessage(ws, message);
+          await this.handleChatMessage(userId, message);
           break;
-        case 'read':
-          await this.handleReadReceipt(ws, message);
+        case 'todoMessage':
+          await this.handleTodoMessage(userId, message);
           break;
         default:
           ws.send(JSON.stringify({
@@ -98,21 +170,17 @@ class WebSocketManager {
     }
   }
 
-  async handleChatMessage(ws, message) {
-    // Salva il messaggio
+  async handleChatMessage(fromUserId, message) {
+    // Salva il messaggio nel DB
     const newMessage = await db.Message.create({
-      fromId: ws.userId,
+      fromId: fromUserId,
       toId: message.to,
       content: message.content
     });
 
     // Recupera info mittente
-    const sender = await db.User.findByPk(ws.userId, {
+    const sender = await db.User.findByPk(fromUserId, {
       attributes: ['id', 'name', 'pc_id']
-    });
-
-    const recipient = await db.User.findByPk(message.to, {
-      attributes: ['id', 'pc_id']
     });
 
     const messageToSend = {
@@ -127,123 +195,41 @@ class WebSocketManager {
       timestamp: newMessage.createdAt
     };
 
-    // Invia al destinatario se online
-    const recipientWs = this.clients.get(message.to);
-    if (recipientWs) {
-      recipientWs.send(JSON.stringify(messageToSend));
-    }
-
-    // Conferma al mittente
-    ws.send(JSON.stringify({
-      type: 'sent',
-      messageId: newMessage.id,
-      timestamp: newMessage.createdAt
-    }));
+    // Usa il ConnectionManager per inviare il messaggio
+    connectionManager.sendToUser(message.to, messageToSend);
   }
 
   async handleDisconnection(userId) {
-    // Aggiorna stato utente
-    await db.User.update(
-      {
-        online: false,
-        lastSeen: new Date()
-      },
-      { where: { id: userId } }
-    );
+    // Se non ci sono più connessioni attive per questo utente
+    if (!connectionManager.isUserConnected(userId)) {
+      // Aggiorna stato utente nel DB
+      await db.User.update(
+        {
+          online: false,
+          lastSeen: new Date()
+        },
+        { where: { id: userId } }
+      );
 
-    // Rimuovi dalla mappa
-    this.clients.delete(userId);
-
-    // Notifica altri utenti
-    this.broadcastUserStatus(userId, false);
-
-    console.log(`User ${userId} disconnected`);
-  }
-
-  async handleStepCompletion(completedStep, taskid) {
-    try {
-      const steps = await db.Step.findAll({
-        where: { taskid },
-        include: [
-          {
-            model: db.User,
-            as: 'user',
-            attributes: ['id', 'name', 'pc_id']
-          },
-          {
-            model: db.Task,
-            as: 'task',
-            attributes: ['id', 'patient']
-          }
-        ],
-        order: [['order', 'ASC']]
-      });
-
-      const currentStepIndex = steps.findIndex(step => step.id === completedStep.id);
-      const nextStep = steps[currentStepIndex + 1];
-
-      if (nextStep && nextStep.user.id !== completedStep.userid) {
-        // Crea un TodoMessage
-        const todoMessage = await db.TodoMessage.create({
-          senderId: completedStep.userid,
-          recipientId: nextStep.user.id,
-          type: 'step_notification',
-          subject: `Nuova fase da completare: ${nextStep.name}`,
-          message: `La fase "${completedStep.name}" è stata completata per il paziente ${completedStep.task.patient}. La fase "${nextStep.name}" è pronta per essere lavorata.`,
-          priority: 'high',
-          status: 'pending',
-          relatedTaskId: taskId,
-          relatedStepId: nextStep.id,
-          dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000) // Scadenza a 24 ore
-        });
-
-        // Invia notifica WebSocket
-        const notification = {
-          type: 'stepNotification',
-          todoMessageId: todoMessage.id,
-          title: todoMessage.subject,
-          message: todoMessage.message,
-          priority: todoMessage.priority,
-          taskId,
-          stepId: nextStep.id,
-          timestamp: new Date()
-        };
-
-        this.sendNotification(nextStep.user.id, notification);
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Errore durante la gestione del completamento dello step:', error);
-      return false;
+      // Broadcast dello stato utente
+      this.broadcastUserStatus(userId, false);
     }
   }
 
   broadcastUserStatus(userId, online) {
-    const message = JSON.stringify({
+    const message = {
       type: 'userStatus',
       userId,
       online,
       timestamp: new Date()
-    });
+    };
 
-    this.clients.forEach((client, clientId) => {
-      if (clientId !== userId && client.readyState === WebSocket.OPEN) {
-        client.send(message);
+    // Broadcast a tutti gli utenti connessi eccetto quello corrente
+    this.wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
       }
     });
-  }
-
-  // Metodo per inviare notifiche a un utente specifico
-  sendNotification(userId, notification) {
-    const ws = this.clients.get(userId);
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'notification',
-        ...notification
-      }));
-    }
   }
 }
 
