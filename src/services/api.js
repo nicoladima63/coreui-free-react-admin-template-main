@@ -437,18 +437,6 @@ export const MessageService = {
   markAsRead: (messageId) => apiClient.patch(`/messages/${messageId}/read`),
 };
 
-//export const TodoService2 = {
-//  getTodos: () => apiClient.get('/todos'),
-//  getTodosSent: () => apiClient.get('/todos/sent'),
-//  getTodosReceived: () => apiClient.get('/todos/received'),
-//  getTodo: (id) => apiClient.get(`/todos/${id}`),
-//  createTodo: (data) => apiClient.post('/todos', data),
-//  updateTodo: (id, data) => apiClient.put(`/todos/${id}`, data),
-//  deleteTodo: (id) => apiClient.delete(`/todos/${id}`),
-//  markAsRead: (id) => apiClient.patch(`/todos/${id}/read`),
-//};
-
-
 export const TodoService = {
   getTodos: () => apiClient.get('/todos'),
   getTodosSent: async () => {

@@ -147,7 +147,7 @@ const formatTimeAgo = (date) => {
 };
 
 
-const MessagesSection = ({ userId }) => {
+const MessagesSection = ({ userId ,onOpenSteps}) => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { showConfirmDialog } = useConfirmDialog();
@@ -155,7 +155,6 @@ const MessagesSection = ({ userId }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [showReadMessages, setShowReadMessages] = useState(false);
   const [processingMessageId, setProcessingMessageId] = useState(null);
-
   // WebSocket setup migliorato
   useEffect(() => {
     let mounted = true;
@@ -288,33 +287,47 @@ const MessagesSection = ({ userId }) => {
 
   // Handler per click sul messaggio
   const handleMessageClick = useCallback(async (message) => {
-    if (!message?.id || processingMessageId) return;
+    if (!message?.id) return;
+    console.log(JSON.stringify(message, null, 2));
+    //return
+    // Previene clic multipli sullo stesso messaggio
+    const currentProcessingId = message.id;
+    if (processingMessageId === currentProcessingId) return;
 
     try {
-      setProcessingMessageId(message.id);
-      if (message.type === 'step_notification') {
+      setProcessingMessageId(currentProcessingId);
+
+      // Prima marca come letto
+      await markAsReadMutation.mutateAsync(currentProcessingId);
+
+      // Poi gestisce la navigazione se necessario
+      if (message.type === 'step_notification' && message.relatedTaskId) {
         const confirmed = await showConfirmDialog({
           title: 'Notifica step',
-          message: 'Vuoi andare alla pagina del task?',
-          confirmText: 'Vai al task',
+          message: 'Vuoi andare alla fase di lavorazione?',
+          confirmText: 'Vai alla fase',
           cancelText: 'Solo segna come letto',
           confirmColor: 'primary'
         });
 
-        await markAsReadMutation.mutateAsync(message.id);
-
-        if (confirmed && message.relatedTaskId) {
-          navigate(`/tasks/${message.relatedTaskId}`);
+        if (confirmed) {
+          const tasksData = queryClient.getQueryData([QUERY_KEYS.TASKS]);
+          const task = tasksData?.find(t => t.id === message.relatedTaskId);
+          if (task) {
+            onOpenSteps(task, message.relatedStepId);
+          }
         }
-      } else {
-        await markAsReadMutation.mutateAsync(message.id);
       }
+
     } catch (error) {
       showError('Errore nella gestione del messaggio');
     } finally {
-      setProcessingMessageId(null);
+      // Resetta solo se è ancora il messaggio corrente
+      setProcessingMessageId(prev =>
+        prev === currentProcessingId ? null : prev
+      );
     }
-  }, [processingMessageId, showConfirmDialog, markAsReadMutation, navigate, showError]);
+  }, [processingMessageId, showConfirmDialog, markAsReadMutation, showError, queryClient, onOpenSteps]);
 
   // Computed values
   const sortedTodos = useMemo(() => {

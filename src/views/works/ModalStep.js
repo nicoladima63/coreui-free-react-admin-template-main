@@ -80,7 +80,7 @@ const ModalStep = ({ visible, onClose, selectedStep = null, workId }) => {
       // Validazione iniziale
       const errors = {};
       if (!initialData.name.trim()) errors.name = 'Il nome è obbligatorio';
-      if (!initialData.order.trim()) errors.order = 'L\'ordine è obbligatorio';
+      if (!initialData.order) errors.order = 'L\'ordine è obbligatorio';
       if (!initialData.userid) errors.userid = 'Seleziona un operatore';
       if (!initialData.workid) errors.workid = 'Seleziona una lavorazione';
 
@@ -153,7 +153,7 @@ const ModalStep = ({ visible, onClose, selectedStep = null, workId }) => {
       errors.name = 'Il nome è obbligatorio';
     }
 
-    if (!formData.order.trim()) {
+    if (!formData.order) {
       errors.order = 'L\'ordine è obbligatorio';
     } else if (isNaN(formData.order) || parseInt(formData.order) < 1) {
       errors.order = 'L\'ordine deve essere un numero positivo';

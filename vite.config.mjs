@@ -9,7 +9,7 @@ export default defineConfig(() => {
     build: {
       outDir: 'build',
       sourcemap: true, // Abilita le source maps per il debug
-      minify: false,  
+      minify: true,  
     },
     css: {
       postcss: {

@@ -163,7 +163,7 @@ const getTasksForDashboard = async () => {
         {
           model: Step,
           as: 'steps', // Usa 'steps' qui per la relazione
-          attributes: ['id', 'name', 'completed'], // Attributi di Step
+          attributes: ['id', 'name', 'order','completed'], // Attributi di Step
           include: [
             {
               model: User,

@@ -161,6 +161,7 @@ const Dashboard = () => {
       <CCol xs={12} xl={2}>
         <MessagesSection
           userId={auth.user.id}
+          onOpenSteps={handleOpenSteps} 
           onNewMessage={(message) => {
             // Emetti evento WebSocket quando invii un nuovo messaggio
             socket?.emit('sendMessage', message);
@@ -262,15 +263,6 @@ const TaskWidget = ({ task, onOpenSteps }) => {
   const queryClient = useQueryClient();
   const { showError } = useToast();
 
-  const updateStepMutation = useMutation({
-    mutationFn: ({ stepId, completed }) => StepsService.updateStepStatus(stepId, completed),
-    onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.TASKS]);
-    },
-    onError: (error) => {
-      showError(error);
-    }
-  });
 
   // Ordinamento e calcoli
   const sortedSteps = useMemo(() =>

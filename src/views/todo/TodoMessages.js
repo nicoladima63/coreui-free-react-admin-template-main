@@ -92,11 +92,11 @@ const TodoMessages = () => {
     };
   }, [queryClient, showWarning]);
 
+
   // Mutation per aggiornare un record
   const updateMutation = useMutation({
     mutationFn: async ({ id, status }) => {
-      const result = await TodoService.updateTodoStatus(id, status);
-
+      const result = await TodoService.updateTodoStatus({id, status});
       // Notifica via WebSocket
       websocketService.send({
         type: 'todoStatusUpdate',
@@ -240,7 +240,7 @@ const TodoMessages = () => {
                     onClick={() => handleStatusUpdate(todo.id, 'in_progress')}
                     disabled={isLoading}
                   >
-                    {isLoading ? <CSpinner size="sm" /> : <CIcon icon={icon.cilPencil} />}
+                    {isLoading ? <CSpinner size="sm" /> : <CIcon icon={icon.cilPencil} size="sm" />}
                   </CButton>
                   <CButton
                     color="success"
@@ -267,7 +267,6 @@ const TodoMessages = () => {
       </CTableBody>
     </CTable>
   );
-
 
   return (
     <CRow>

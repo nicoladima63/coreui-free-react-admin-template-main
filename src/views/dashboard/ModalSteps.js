@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../../hooks/useToast';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
+import { websocketService } from '../../services/websocket';
 
 import {
   CModal,
@@ -23,14 +24,26 @@ import {
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
 
-import { StepsService, TasksService } from '../../services/api';
+import { StepsService, TasksService, TodoService } from '../../services/api';
 import { QUERY_KEYS } from '../../constants/queryKeys';
 
-const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
+const ModalSteps = ({ visible, onClose, task, focusedStepId }) => {
   const queryClient = useQueryClient();
-  const { showError, showSuccess } = useToast();
+  const { showError, showSuccess, showInfo } = useToast();
   const { showConfirmDialog, ConfirmDialog } = useConfirmDialog();
   const [localTask, setLocalTask] = useState(task);
+
+
+  useEffect(() => {
+    if (visible && focusedStepId) {
+      const stepElement = document.getElementById(`step-${focusedStepId}`);
+      if (stepElement) {
+        stepElement.scrollIntoView({ behavior: 'smooth' });
+        stepElement.classList.add('highlight-step');
+        setTimeout(() => stepElement.classList.remove('highlight-step'), 2000);
+      }
+    }
+  }, [visible, focusedStepId]);
 
   // Aggiorniamo localTask quando cambia task
   useEffect(() => {
@@ -63,8 +76,6 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
     },
   });
 
-
-
   const areAllStepsCompleted = useMemo(() => {
     if (!localTask?.steps?.length) return false;
     return localTask.steps.every(step => step.completed);
@@ -89,31 +100,54 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
     }, {});
   }, [sortedSteps]);
 
-
   // Handlers
   const handleToggleStep = useCallback(async (stepId, completed) => {
     try {
-      // Calcola il nuovo stato degli step prima dell'aggiornamento
+      // Aggiorna localmente lo stato dello step
       const updatedSteps = localTask.steps.map(s =>
         s.id === stepId ? { ...s, completed } : s
       );
+      setLocalTask(prev => ({ ...prev, steps: updatedSteps }));
 
-      // Verifica se con questo aggiornamento completiamo tutte le fasi
-      const willAllBeCompleted = completed && updatedSteps.every(s =>
+      // Invia la modifica al backend
+      await updateStepMutation.mutateAsync({ stepId, completed });
+
+
+      if (completed) {
+        const completedStep = localTask.steps.find(s => s.id === stepId);
+        const nextStep = localTask.steps.find(s => s.order === completedStep.order + 1);
+
+        if (nextStep) {
+          const message = `La fase "${completedStep.name}" è stata completata. Puoi procedere con "${nextStep.name}"`;
+
+          try {
+            // Create notification via API only
+            await TodoService.createTodo({
+              recipientId: nextStep.user.id,
+              subject: 'Fase precedente completata',
+              message,
+              priority: 'high',
+              type: 'step_notification',
+              relatedTaskId: task.id,
+              relatedStepId: nextStep.id,
+              status: 'pending'
+            });
+
+            showInfo(`Notifica inviata a ${nextStep.user.name}`);
+          } catch (error) {
+            console.error('Error sending notification:', error);
+            showError('Errore nell\'invio della notifica');
+          }
+        }
+      }
+
+      // Verifica se tutti gli step saranno completati
+      const willAllBeCompleted = updatedSteps.every(s =>
         s.id === stepId ? completed : s.completed
       );
 
-      // Aggiorna immediatamente lo stato locale
-      setLocalTask(prev => ({
-        ...prev,
-        steps: updatedSteps
-      }));
-
-      // Esegui la mutation
-      await updateStepMutation.mutateAsync({ stepId, completed });
-
-      // Se questa era l'ultima fase da completare, chiedi conferma per l'archiviazione
       if (willAllBeCompleted) {
+        // Mostra dialogo di archiviazione
         const shouldArchive = await showConfirmDialog({
           title: 'Task Completato',
           message: 'Tutte le fasi sono state completate. Vuoi archiviare questo task?',
@@ -129,12 +163,12 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
         showSuccess('Fase aggiornata');
       }
     } catch (error) {
-      // Ripristina lo stato precedente in caso di errore
+      // Rollback in caso di errore
       setLocalTask(task);
       console.error('Error toggling step:', error);
       showError('Errore nell\'aggiornamento della fase');
     }
-  }, [updateStepMutation, completeTaskMutation, localTask, task, showSuccess, showError, showConfirmDialog]);
+  }, [updateStepMutation, completeTaskMutation, localTask, task, showSuccess, showInfo, showError, showConfirmDialog]);
 
   const getStepStatusButton = useCallback((step) => {
     if (!step || !stepValidations[step.id]) return null;
@@ -264,13 +298,15 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
               sortedSteps.map((step) => (
                 <CTableRow
                   key={step.id}
-                  className={`${stepValidations[step.id]?.hasIncompletePrerequisites ? 'text-muted' : ''} ${step.completed ? 'table-success' : ''}`}
+                  id={`step-${step.id}`}
+                  className={`
+                    ${stepValidations[step.id]?.hasIncompletePrerequisites ? 'text-muted' : ''} 
+                    ${step.completed ? 'table-success' : ''}
+                    ${step.id === focusedStepId ? 'highlight-step' : ''}
+                  `}
                 >
                   <CTableDataCell className="text-center">
-                    <CBadge
-                      color={step.completed ? "success" : "primary"}
-                      shape="rounded-pill"
-                    >
+                    <CBadge color={step.completed ? "success" : "primary"} shape="rounded-pill">
                       {step.order}
                     </CBadge>
                   </CTableDataCell>
@@ -279,11 +315,7 @@ const ModalSteps = ({ visible, onClose, task, onToggleStep }) => {
                       {step.name}
                       {stepValidations[step.id]?.hasIncompletePrerequisites && (
                         <CTooltip content="Richiede il completamento delle fasi precedenti">
-                          <CIcon
-                            icon={icon.cilWarning}
-                            className="ms-2 text-warning"
-                            size="sm"
-                          />
+                          <CIcon icon={icon.cilWarning} className="ms-2 text-warning" size="sm" />
                         </CTooltip>
                       )}
                     </div>
