@@ -1,23 +1,28 @@
 // config/environment.js
+
+// Determina l'ambiente attuale
 const getEnvironment = () => {
-  return import.meta.env.MODE || 'development';
+  return import.meta.env.MODE || 'development'; // Usa 'development' come fallback
 };
 
+// Configurazione per gli ambienti
 const config = {
   development: {
-    apiUrl: import.meta.env.VITE_API_URL_DEVELOPMENT || 'http://localhost:5000',
+    apiUrl: 'http://localhost:5000',
     wsUrl: 'ws://localhost:5000',
-    apiBaseUrl: import.meta.env.VITE_APP_API_BASE_URL || 'http://localhost:5000/api'
+    apiBaseUrl: 'http://localhost:5000/api',
   },
   production: {
-    apiUrl: import.meta.env.VITE_API_URL_PRODUCTION || 'http://192.168.1.200:5000',
+    apiUrl: 'http://192.168.1.200:5000',
     wsUrl: 'ws://192.168.1.200:5000',
-    apiBaseUrl: 'http://192.168.1.200:5000/api'
-  }
+    apiBaseUrl: 'http://192.168.1.200:5000/api',
+  },
 };
 
+// Esporta la configurazione dell'ambiente attuale
 export const getCurrentConfig = () => config[getEnvironment()];
 
+// Esempio di esportazione specifica (opzionale)
 export const getWsUrl = () => {
   const { wsUrl } = getCurrentConfig();
   return wsUrl;

@@ -8,6 +8,7 @@ const Typography = React.lazy(() => import('./views/theme/typography/Typography'
 const Users = React.lazy(() => import('./views/users/Users'))
 const Works = React.lazy(() => import('./views/works/Works'))
 const Tasks = React.lazy(() => import('./views/tasks/Tasks'))
+const Todo = React.lazy(() => import('./views/todo/TodoMessages'))
 const Provider = React.lazy(() => import('./views/provider/Provider'))
 const Category = React.lazy(() => import('./views/categories/Category'))
 const Steps = React.lazy(() => import('./views/steps/Steps'))
@@ -67,6 +68,7 @@ const routes = [
   { path: '/users', name: 'Users', element: Users, exact: true },
   { path: '/works', name: 'Works', element: Works, exact: true },
   { path: '/tasks', name: 'Tasks', element: Tasks, exact: true },
+  { path: '/todo', name: 'Todo', element: Todo, exact: true },
   { path: '/provider', name: 'Provider', element: Provider, exact: true },
   { path: '/pcs', name: 'Pcs', element: Pcs, exact: true },
   { path: '/steps', name: 'Steps', element: Steps, exact: true },

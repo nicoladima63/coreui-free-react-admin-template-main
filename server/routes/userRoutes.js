@@ -15,6 +15,21 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get a single user by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id); // Usa findByPk per trovare un utente per ID
+    if (!user) {
+      return res.status(404).json({ error: 'Utente non trovato' });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error("Errore dettagliato:", error);
+    res.status(500).json({ error: 'Errore nel recupero dell\'utente' });
+  }
+});
+
+
 // Register. Crea un nuovo utente
 router.post('/register', 
   [
@@ -104,5 +119,52 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ error: 'Errore nel login' });
   }
 });
+
+
+// Update user
+router.put('/:id', async (req, res) => {
+  const { name, email, pc_id } = req.body;
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Utente non trovato' });
+    }
+
+    // Aggiorna i campi
+    user.name = name || user.name;
+    user.email = email || user.email;
+    user.pc_id = pc_id || user.pc_id;
+
+    // Salva le modifiche
+    await user.save();
+
+    res.json(user);
+  } catch (error) {
+    console.error("Errore dettagliato:", error);
+    res.status(500).json({ error: 'Errore nell\'aggiornamento dell\'utente' });
+  }
+});
+
+// Delete user
+router.delete('/users/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Trova l'utente per ID
+    const user = await User.findByPk(id);
+
+    if (!user) {
+      return res.status(404).json({ error: 'Utente non trovato' });
+    }
+
+    // Elimina l'utente
+    await user.destroy();
+
+    res.status(200).json({ message: 'Utente eliminato con successo' });
+  } catch (error) {
+    console.error("Errore dettagliato:", error);
+    res.status(500).json({ error: 'Errore nell\'eliminazione dell\'utente' });
+  }
+});
+
 
 module.exports = router;

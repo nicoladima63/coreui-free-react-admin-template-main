@@ -54,13 +54,6 @@ const AppHeader = () => {
         <CHeaderNav className="d-none d-md-flex">
           <CNavItem>
             <CNavLink to="/dashboard" as={NavLink}>Dashboard</CNavLink>
-
-          </CNavItem>
-          <CNavItem>
-            <CNavLink to="/xdashboard" as={NavLink}>XDashboard</CNavLink>
-          </CNavItem>
-          <CNavItem>
-            <CNavLink to="/zdashboard" as={NavLink}>zDashboard</CNavLink>
           </CNavItem>
           <CNavItem>
             <CNavLink to="/users" as={NavLink}>Users</CNavLink>
@@ -73,9 +66,6 @@ const AppHeader = () => {
           </CNavItem>
           <CNavItem>
             <CNavLink to="/tasks" as={NavLink}>Task</CNavLink>
-          </CNavItem>
-          <CNavItem>
-            <CNavLink to="/steps" as={NavLink}>Steps</CNavLink>
           </CNavItem>
           <CNavItem>
             <CNavLink to="/categories" as={NavLink}>Categorie</CNavLink>

@@ -17,6 +17,7 @@ import {
   CTableCaption,
   CSpinner,
   CAlert,
+  CBadge,CFormInput,
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import * as icon from '@coreui/icons';
@@ -169,7 +170,12 @@ const CategoriesView = () => {
                       <CTableDataCell>{item.id}</CTableDataCell>
                       <CTableDataCell>{item.name}</CTableDataCell>
                       <CTableDataCell>
-                        <div style={{ width: 50, height: 30, backgroundColor: item.color }} />
+          <CFormInput
+            type="color"
+            value={item.color}
+            className="mt-3"
+            disabled
+          />
                       </CTableDataCell>
                       <CTableDataCell className="text-end">
                         <CButtonGroup>

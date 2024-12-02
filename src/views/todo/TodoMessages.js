@@ -275,7 +275,6 @@ const TodoMessages = () => {
           <CCardHeader>
             <CRow className="align-items-center">
               <CCol>
-                {currentUser.id}
                 <strong>Todo Messages</strong>
               </CCol>
               <CCol xs="auto">

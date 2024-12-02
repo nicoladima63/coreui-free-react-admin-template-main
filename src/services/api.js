@@ -2,11 +2,14 @@
 import axiosRetry from 'axios-retry';
 import { backOff } from 'exponential-backoff';
 import axios from 'axios';
-import { API_BASE_URL } from '../constants/config';
+import { getCurrentConfig } from '../config/environment';
 
+// Ottieni la configurazione corrente
+const { apiBaseUrl } = getCurrentConfig();
 
+// Crea un'istanza di Axios con configurazione di base
 const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: apiBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },

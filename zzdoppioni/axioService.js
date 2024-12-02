@@ -1,14 +1,13 @@
 // axiosService.js
 import axios from 'axios';
+import { getCurrentConfig } from './config/environment';
 
-const BASE_URL =
-  import.meta.env.MODE === 'development'
-    ? import.meta.env.VITE_API_URL_DEVELOPMENT
-    : import.meta.env.VITE_API_URL_PRODUCTION;
-
+// Ottieni la configurazione corrente
+const { apiBaseUrl } = getCurrentConfig();
+console.log('axioservice apiBaseUrl: ',apiBaseUrl)
 // Crea un'istanza di Axios con configurazione di base
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: apiBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },

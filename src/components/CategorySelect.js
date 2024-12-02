@@ -1,11 +1,13 @@
 import React from 'react';
 import SelectComponent from './SelectComponent';
-import { API_BASE_URL } from '../constants/config';
+import { getCurrentConfig } from '../config/environment';
+// Ottieni la configurazione corrente
+const { apiBaseUrl } = getCurrentConfig();
 
 const CategorySelect = ({ onSelect, selectedValue,disabled }) => {
   return (
     <SelectComponent
-      endpoint={`${API_BASE_URL}/categories`}
+      endpoint={`${apiBaseUrl}/categories`}
       label="un valore"
       onSelect={onSelect}
       selectedValue={selectedValue}

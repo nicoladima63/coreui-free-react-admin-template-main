@@ -1,11 +1,14 @@
 import React from 'react';
 import SelectComponent from './SelectComponent';
-import { API_BASE_URL } from '../constants/config';
+import { getCurrentConfig } from '../config/environment';
+
+// Ottieni la configurazione corrente
+const { apiBaseUrl } = getCurrentConfig();
 
 const WorkSelect = ({ onSelect, selectedValue, disabled }) => {
   return (
     <SelectComponent
-      endpoint={`${API_BASE_URL}/works`}
+      endpoint={`${apiBaseUrl}/works`}
       label="un valore"
       onSelect={onSelect}
       selectedValue={selectedValue}

@@ -69,7 +69,6 @@ const AppRoutes = () => {
       <Route path="/500" element={<Page500 />} />
       <Route path="/test-websocket" element={<WebSocketTest />} />
       <Route path="/SendMessageToPC" element={<SendMessageToPC />} />
-      <Route path="/todo" element={<TodoMessage />} />
       {/* Rotta predefinita */}
       <Route path="*" element={<DefaultLayout />} />
     </Routes>
