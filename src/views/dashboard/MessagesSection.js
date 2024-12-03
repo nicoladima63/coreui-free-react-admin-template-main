@@ -155,7 +155,19 @@ const MessagesSection = ({ userId ,onOpenSteps}) => {
   const [isConnected, setIsConnected] = useState(false);
   const [showReadMessages, setShowReadMessages] = useState(false);
   const [processingMessageId, setProcessingMessageId] = useState(null);
-  // WebSocket setup migliorato
+
+  useEffect(() => {
+    websocketService.addHandler('error', (error) => {
+      console.error('WebSocket error:', error);
+      // Potenzialmente trigger di un refetch manuale
+      queryClient.invalidateQueries([QUERY_KEYS.TODOS, 'received', userId]);
+    });
+
+    return () => {
+      websocketService.removeHandler('error');
+    };
+  }, [queryClient, userId]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -240,8 +252,8 @@ const MessagesSection = ({ userId ,onOpenSteps}) => {
   } = useQuery({
     queryKey: [QUERY_KEYS.TODOS, 'received', userId],
     queryFn: TodoService.getTodosReceived,
-    refetchInterval: isConnected ? false : 30000,
-    staleTime: 30000,
+    refetchInterval: 10000,
+    staleTime: 0,
     cacheTime: 5 * 60 * 1000,
     enabled: !!userId,
     onError: (error) => {

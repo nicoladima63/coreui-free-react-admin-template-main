@@ -1,4 +1,5 @@
 // services/websocket.js
+import { getWsUrl } from '../config/environment';
 class WebSocketService {
   constructor() {
     this.ws = null;
@@ -15,7 +16,8 @@ class WebSocketService {
     }
 
     try {
-      this.ws = new WebSocket(`ws://localhost:5000?token=${token}`);
+      const wsUrl = getWsUrl();
+      this.ws = new WebSocket(`${wsUrl}?token=${token}`);
 
       this.ws.onopen = () => {
         this.reconnectAttempts = 0;
@@ -31,26 +33,38 @@ class WebSocketService {
         this._attemptReconnect();
       };
 
+      //this.ws.onmessage = (event) => {
+      //  try {
+      //    const data = JSON.parse(event.data);
+
+      //    // Gestione specifica per i TodoMessages
+      //    if (data.type === 'newTodoMessage') {
+      //      this._notifyHandlers('newTodoMessage', data.message);
+      //    } else if (data.type === 'todoMessageRead') {
+      //      this._notifyHandlers('todoMessageRead', {
+      //        messageId: data.messageId,
+      //        readAt: data.readAt
+      //      });
+      //    } else {
+      //      // Gestione generale per altri tipi di messaggi
+      //      this._notifyHandlers(data.type, data);
+      //    }
+      //  } catch (error) {
+      //    console.error('Error parsing WebSocket message:', error);
+      //  }
+      //};
+
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-
-          // Gestione specifica per i TodoMessages
           if (data.type === 'newTodoMessage') {
             this._notifyHandlers('newTodoMessage', data.message);
-          } else if (data.type === 'todoMessageRead') {
-            this._notifyHandlers('todoMessageRead', {
-              messageId: data.messageId,
-              readAt: data.readAt
-            });
-          } else {
-            // Gestione generale per altri tipi di messaggi
-            this._notifyHandlers(data.type, data);
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }
       };
+
 
     } catch (error) {
       console.error('Error creating WebSocket connection:', error);

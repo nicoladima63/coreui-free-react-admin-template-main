@@ -7,7 +7,7 @@ const { apiBaseUrl } = getCurrentConfig();
 const UserSelect = ({ onSelect, selectedValue, disabled }) => {
   return (
     <SelectComponent
-      endpoint={`${API_BASapiBaseUrlE_URL}/users`}
+      endpoint={`${apiBaseUrl}/users`}
       label="un valore"
       onSelect={onSelect}
       selectedValue={selectedValue}

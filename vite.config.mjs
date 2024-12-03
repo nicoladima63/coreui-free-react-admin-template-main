@@ -8,13 +8,19 @@ export default defineConfig(() => {
     base: './',
     build: {
       outDir: 'build',
-      sourcemap: true, // Abilita le source maps per il debug
-      minify: true,  
+      sourcemap: true,
+      minify: true,
+      rollupOptions: {
+        input: {
+          main: './index.html',
+          'service-worker': './public/service-worker.js'
+        }
+      }
     },
     css: {
       postcss: {
         plugins: [
-          autoprefixer({}), // add options if needed
+          autoprefixer({}),
         ],
       },
     },
@@ -44,8 +50,12 @@ export default defineConfig(() => {
     server: {
       port: 3000,
       proxy: {
-        // https://vitejs.dev/config/server-options.html
-      },
-    },
-  }
+        '/api': {
+          target: 'http://localhost:5000', // verifica che questa sia la porta del tuo server Node
+          changeOrigin: true,
+          secure: false,
+          //rewrite: (path) => path.replace(/^\/api/, '')
+        }
+      }
+    },  }
 })

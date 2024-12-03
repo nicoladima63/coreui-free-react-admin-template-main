@@ -16,8 +16,10 @@ const stepRoutes = require('./routes/stepRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const stepTempRoutes = require('./routes/stepTempRoutes');
 const aggregateRoutes = require('./routes/aggregateRoutes');
-//const messageRoutes = require('./routes/messageRoutes'); // Nuovo router per i messaggi
-const todoMessageRoutes=require('./routes/todoMessageRoutes');
+const todoMessageRoutes = require('./routes/todoMessageRoutes');
+const pushNotificationRoutes = require('./routes/pushNotification');
+
+
 const app = express();
 const server = http.createServer(app);
 
@@ -29,6 +31,12 @@ app.use(express.json());
 WebSocketManager.initialize(server);
 console.log('Main: WebSocket initialization completed');
 
+
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
 // Routes
 app.use('/api/pcs', pcRoutes);
 app.use('/api/works', workRoutes);
@@ -39,9 +47,8 @@ app.use('/api/steps', stepRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/stepstemp', stepTempRoutes);
 app.use('/api/aggregate', aggregateRoutes);
-//app.use('/api/messages', messageRoutes);
 app.use('/api/todos', todoMessageRoutes);
-
+app.use('/api/push', pushNotificationRoutes);
 
 // Test route
 app.get('/api/test', (req, res) => {

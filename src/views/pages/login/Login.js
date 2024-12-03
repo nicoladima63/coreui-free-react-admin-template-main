@@ -20,7 +20,8 @@ import {
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import { cilLockLocked, cilUser } from '@coreui/icons';
-
+import { getCurrentConfig } from '../../../config/environment';
+// Ottieni la configurazione corrente
 const Login = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -33,6 +34,7 @@ const Login = () => {
 
   // Get auth state from Redux store
   const auth = useSelector(state => state.auth);
+  const { apiBaseUrl } = getCurrentConfig();
 
   useEffect(() => {
     // Verifica che l'utente sia effettivamente autenticato con dati validi
@@ -46,7 +48,7 @@ const Login = () => {
     setError(null);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/users/login', {
+      const response = await axios.post(`${apiBaseUrl}/users/login`, {
         email,
         password,
       });

@@ -3,7 +3,7 @@ const WebSocket = require('ws')
 const jwt = require('jsonwebtoken')
 const db = require('../models')
 const connectionManager = require('./ConnectionManager')
-
+const pushNotificationController = require('../controllers/pushNotificationController');
 class WebSocketManager {
   constructor() {
     this.wss = null
@@ -88,7 +88,21 @@ class WebSocketManager {
         )
       }
 
-      return newTodo
+      await pushNotificationController.sendNotification(
+        message.recipientId,
+        {
+          title: `Nuovo messaggio da ${todoWithRelations.sender.name}`,
+          body: message.message,
+          icon: '/path/to/icon.png',
+          data: {
+            messageId: newTodo.id,
+            type: 'todoMessage',
+            url: `/dashboard?message=${newTodo.id}`
+          }
+        }
+      );
+
+      return newTodo;
     } catch (error) {
       console.error('Error handling todo message:', error)
       throw error

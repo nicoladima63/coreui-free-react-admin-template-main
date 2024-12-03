@@ -97,6 +97,7 @@ export const WebSocketProvider = ({ children }) => {
     isConnected,
     connect: connectWebSocket,
     disconnect: () => websocketService.disconnect(),
+    websocketService: websocketService 
   }
 
   return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>
