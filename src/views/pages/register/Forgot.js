@@ -132,16 +132,26 @@ const ForgotPassword = () => {
                 <CCardBody className="text-center">
                   <div>
                     <h2>Iscriviti</h2>
-                    <br /><br /><br />
                     <p>
-                      Non hai un account?<br /> clicca qui sotto per eseguire una nuova registrazione
+                      Non hai un account?
                     </p>
                     <Link to="/register">
                       <CButton color="primary" className="mt-3" active tabIndex={-1}>
-                        Registrazione
+                        Registrati
+                      </CButton>
+                    </Link>
+                    <br /><br /><br />
+                    <h2>Login</h2>
+                    <p>
+                      hai già un account?
+                    </p>
+                    <Link to="/login">
+                      <CButton color="primary" className="mt-3" active tabIndex={-1}>
+                        Accedi
                       </CButton>
                     </Link>
                   </div>
+
                 </CCardBody>
               </CCard>
             </CCardGroup>

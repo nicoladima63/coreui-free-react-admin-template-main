@@ -20,7 +20,7 @@ import { useToast } from '../../hooks/useToast';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { QUERY_KEYS } from '../../constants/queryKeys';
 
-const MessageItem = React.memo(({ message, onClick, isLoading }) => {
+const MessageItem2 = React.memo(({ message, onClick, isLoading }) => {
   const isRead = !!message.readAt || message.status === 'read';
 
   const handleClick = (e) => {
@@ -93,7 +93,7 @@ const MessageItem = React.memo(({ message, onClick, isLoading }) => {
         </small>
 
         <h6 className="mb-1 text-light">
-          {message.type === 'step_notification' ? 'Notifica Step' : message.sender?.name} scrive:
+          {message.type === 'step_notification' ? 'Notifica Step' : message.sender?.name}:
         </h6>
 
         <p className="mb-0 text-medium-emphasis">
@@ -103,6 +103,115 @@ const MessageItem = React.memo(({ message, onClick, isLoading }) => {
     </div>
   );
 });
+
+const MessageItem = React.memo(({ message, onClick, isLoading }) => {
+  const isRead = !!message.readAt || message.status === 'read';
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const handleToggle = (e) => {
+    e.preventDefault();
+    if (!isLoading) {
+      setIsOpen((prev) => !prev); // Toglie/aggiunge il contenuto
+    }
+  };
+
+  const handleClick = (e) => {
+    e.preventDefault();
+    if (!isLoading && onClick) {
+      onClick(message);
+    }
+  };
+
+  return (
+    <div
+      className={`message-item p-2 border-bottom border-dark`}
+      style={{
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+      }}
+    >
+      {/* Intestazione Accordion */}
+      <div
+        onClick={handleToggle}
+        className={`
+          d-flex align-items-center justify-content-between
+          ${!isRead ? 'message-unread' : ''}
+        `}
+        style={{
+          backgroundColor: isOpen ? 'var(--cui-dark-hover)' : 'var(--cui-dark)',
+          padding: '0.5rem',
+          borderLeft: '4px solid',
+          borderLeftColor:
+            message.priority === 'high'
+              ? 'var(--cui-danger)'
+              : 'var(--cui-primary-subtle)',
+        }}
+      >
+        {/* Badge */}
+        <div className="d-flex align-items-center">
+          {!isRead && (
+            <CBadge className="me-2" color="info" shape="rounded-pill">
+              Nuovo
+            </CBadge>
+          )}
+          {message.priority === 'high' && (
+            <CBadge color="danger" shape="rounded-pill">
+              Urgente
+            </CBadge>
+          )}
+        </div>
+
+        {/* Titolo e Icona */}
+        <div className="d-flex align-items-center flex-grow-1">
+          <div className="me-3">
+            <CIcon
+              icon={
+                message.type === 'step_notification'
+                  ? icon.cilBell
+                  : icon.cilEnvelopeLetter
+              }
+              className="text-light"
+              size="sm"
+            />
+          </div>
+          <h6 className="mb-0 text-light flex-grow-1">
+            {message.type === 'step_notification'
+              ? 'Notifica Step'
+              : message.sender?.name}
+          </h6>
+        </div>
+
+        {/* Icona di apertura/chiusura */}
+        <CIcon
+          icon={isOpen ? icon.cilChevronTop : icon.cilChevronBottom}
+          className="text-light"
+          size="sm"
+        />
+      </div>
+
+      {/* Contenuto Accordion */}
+      {isOpen && (
+        <div
+          className="accordion-body mt-2 p-2"
+          style={{ backgroundColor: 'var(--cui-dark-subtle)' }}
+        >
+          <small className="text-medium-emphasis">
+            {formatTimeAgo(message.createdAt)}
+          </small>
+          <p className="mb-0 text-medium-emphasis">{message.message}</p>
+          <div
+            className="d-flex align-items-center justify-content-end mt-2"
+            onClick={handleClick}
+          >
+            <button className="btn btn-primary btn-sm">Letto</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+
 
 const formatTimeAgo = (date) => {
   if (!date) return 'Data non disponibile';
@@ -300,8 +409,6 @@ const MessagesSection = ({ userId ,onOpenSteps}) => {
   // Handler per click sul messaggio
   const handleMessageClick = useCallback(async (message) => {
     if (!message?.id) return;
-    console.log(JSON.stringify(message, null, 2));
-    //return
     // Previene clic multipli sullo stesso messaggio
     const currentProcessingId = message.id;
     if (processingMessageId === currentProcessingId) return;
@@ -361,13 +468,13 @@ const MessagesSection = ({ userId ,onOpenSteps}) => {
       <CCardHeader>
         {/* Prima riga: titolo e bottone filtro */}
         <div className="d-flex justify-content-between align-items-center mb-2">
-          <h5 className="mb-0">Centro Notifiche</h5>
+          <h6 className="mb-0">Centro Notifiche</h6>
           <CButton
             color="link"
             onClick={() => setShowReadMessages(prev => !prev)}
             className="p-0" // Rimuove il padding extra del bottone
           >
-            {showReadMessages ? 'Nascondi letti' : 'Mostra tutti'}
+            {showReadMessages ? 'da leggere' : 'tutti'}
           </CButton>
         </div>
 

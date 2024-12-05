@@ -111,8 +111,6 @@ const Login = () => {
                 <CCardBody>
                   <CForm onSubmit={handleLogin}>
                     <h1>Accesso</h1>
-                    <p className="text-body-secondary">Accedi con il tuo account</p>
-
                     <CInputGroup className="mb-3">
                       <CInputGroupText>@</CInputGroupText>
                       <CFormInput
@@ -171,13 +169,13 @@ const Login = () => {
                 <CCardBody className="text-center">
                   <div>
                     <h2>Iscriviti</h2>
-                    <br /><br /><br />
+                    <br /><br />
                     <p>
-                      Non hai un account?<br/> clicca qui sotto per eseguire una nuova registrazione
+                      Non hai un account?
                     </p>
                     <Link to="/register">
                       <CButton color="primary" className="mt-3" active tabIndex={-1}>
-                        Registrazione
+                        Registrati
                       </CButton>
                     </Link>
                   </div>

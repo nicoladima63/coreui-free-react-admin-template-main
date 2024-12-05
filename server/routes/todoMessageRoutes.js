@@ -16,56 +16,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-
-
-// Create a new todo message
-//router.post('/', authenticate, async (req, res) => {
-//  try {
-//    const { recipientId, subject, message, priority, dueDate } = req.body;
-
-//    // Validazione dei dati in ingresso
-//    if (!recipientId || !subject || !message) {
-//      return res.status(400).json({
-//        error: 'Missing required fields',
-//        required: ['recipientId', 'subject', 'message']
-//      });
-//    }
-
-//    // Converti recipientId in numero se è una stringa
-//    const numericRecipientId = parseInt(recipientId, 10);
-
-//    const todoMessage = await TodoMessage.create({
-//      senderId: req.user.id,
-//      recipientId: numericRecipientId,
-//      subject,
-//      message,
-//      priority,
-//      dueDate,
-//      status: 'pending'
-//    });
-
-//    // Invia notifica tramite WebSocket
-//    WebSocketManager.sendNotification(numericRecipientId, {
-//      action: 'new_todo',
-//      data: {
-//        id: todoMessage.id,
-//        subject: todoMessage.subject,
-//        senderId: req.user.id,
-//        senderName: req.user.name,
-//        timestamp: new Date()
-//      }
-//    });
-
-//    res.status(201).json(todoMessage);
-//  } catch (error) {
-//    console.error('Error creating todo:', error);
-//    res.status(400).json({
-//      error: error.message,
-//      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-//    });
-//  }
-//});
-
 router.post('/', authenticate, async (req, res) => {
   const transaction = await sequelize.transaction();
 

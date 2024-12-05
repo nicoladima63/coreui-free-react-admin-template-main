@@ -114,8 +114,7 @@ const Register = () => {
               <CCard className="p-4">
                 <CCardBody className="p-4">
                   <CForm onSubmit={handleRegister}>
-                    <h1>Nuovo</h1>
-                    <p className="text-body-secondary">Crea il tuo account</p>
+                    <h1>Nuovo account</h1>
 
                     {error && (
                       <CAlert color="danger" className="mb-3">
@@ -199,7 +198,7 @@ const Register = () => {
                 <CCardBody className="text-center">
                   <div>
                     <h2>Login</h2>
-                    <br /><br /><br />
+                    <br /><br />
                     <p>
                     hai già un account? <br/>Clicca qui sotto per effettuare il login
                     </p>
