@@ -27,7 +27,6 @@ const Login = () => {
   const navigate = useNavigate();
   const { connect } = useWebSocket();
   const { showSuccess, showError } = useToast();
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
@@ -153,8 +152,13 @@ const Login = () => {
                           Accedi
                         </CButton>
                       </CCol>
+
                       <CCol xs={12} className="text-center mt-3">
-                        <CButton color="link" className="px-6">
+                        <CButton
+                          color="link"
+                          className="px-6"
+                          onClick={() => navigate('/forgot', { state: { email } })}
+                        >
                           Password dimenticata?
                         </CButton>
                       </CCol>
@@ -166,14 +170,14 @@ const Login = () => {
               <CCard className="text-white bg-primary py-5" style={{ width: '44%' }}>
                 <CCardBody className="text-center">
                   <div>
-                    <h2>Sign up</h2>
+                    <h2>Iscriviti</h2>
+                    <br /><br /><br />
                     <p>
-                      Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
-                      tempor incididunt ut labore et dolore magna aliqua.
+                      Non hai un account?<br/> clicca qui sotto per eseguire una nuova registrazione
                     </p>
                     <Link to="/register">
                       <CButton color="primary" className="mt-3" active tabIndex={-1}>
-                        Register Now!
+                        Registrazione
                       </CButton>
                     </Link>
                   </div>

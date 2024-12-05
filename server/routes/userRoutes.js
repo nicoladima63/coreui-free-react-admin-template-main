@@ -166,5 +166,42 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
+// Reset Password
+router.put('/reset-password',
+  [
+    body('email').isEmail().withMessage('Email non valida'),
+    body('password').isLength({ min: 6 }).withMessage('La password deve avere almeno 6 caratteri')
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email, password } = req.body;
+
+    try {
+      // Trova l'utente in base all'email
+      const user = await User.findOne({ where: { email } });
+
+      if (!user) {
+        return res.status(404).json({ error: 'Utente non trovato' });
+      }
+
+      // Hash della nuova password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Aggiorna la password
+      user.password = hashedPassword;
+      await user.save();
+
+      res.json({ message: 'Password aggiornata con successo' });
+    } catch (error) {
+      console.error('Errore durante il reset della password:', error);
+      res.status(500).json({ error: 'Errore durante il reset della password' });
+    }
+  }
+);
+
 
 module.exports = router;

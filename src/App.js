@@ -29,6 +29,7 @@ const DefaultLayout = React.lazy(() => import('./layout/DefaultLayout'));
 const Login = React.lazy(() => import('./views/pages/login/Login'));
 const Logout = React.lazy(() => import('./views/pages/login/Logout'));
 const Register = React.lazy(() => import('./views/pages/register/Register'));
+const Forgot = React.lazy(() => import('./views/pages/register/Forgot'));
 const Page404 = React.lazy(() => import('./views/pages/page404/Page404'));
 const Page500 = React.lazy(() => import('./views/pages/page500/Page500'));
 const WebSocketTest = React.lazy(() => import('./views/test/WebSocketTest'));
@@ -51,12 +52,15 @@ const AppRoutes = () => {
     if (token) {
       dispatch({
         type: 'LOGIN_SUCCESS',
-        user: {/* carica i dettagli dell'utente qui, se disponibili */ }
+        user: {/* carica i dettagli dell'utente qui, se disponibili */ },
       });
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     } else {
-      // Se il token non esiste, reindirizza alla pagina di login
-      navigate('/login');
+      // Reindirizza solo se l'utente tenta di accedere a una route protetta
+      const protectedRoutes = ['/dashboard', '/test-websocket', '/SendMessageToPC'];
+      if (protectedRoutes.includes(window.location.pathname)) {
+        navigate('/login');
+      }
     }
   }, [dispatch, navigate]);
 
@@ -65,6 +69,7 @@ const AppRoutes = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/logout" element={<Logout />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot" element={<Forgot />} />
       <Route path="/404" element={<Page404 />} />
       <Route path="/500" element={<Page500 />} />
       <Route path="/test-websocket" element={<WebSocketTest />} />
