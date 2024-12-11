@@ -11,6 +11,7 @@ import './scss/style.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import axios from 'axios';
 
+
 // Configurazione di React Query
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,6 +81,11 @@ const AppRoutes = () => {
   );
 };
 
+
+import { Provider } from 'react-redux'; // Importa Provider
+import store from './store/store'; // Importa lo store corretto
+
+
 const App = () => {
   const { isColorModeSet, setColorMode } = useColorModes('coreui-free-react-admin-template-theme');
   const storedTheme = useSelector((state) => state.theme);
@@ -98,8 +104,8 @@ const App = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <HashRouter>
-      <QueryClientProvider client={queryClient}>
+    <Provider store={store}>
+      <HashRouter>      <QueryClientProvider client={queryClient}>
         <WebSocketProvider>
           <Suspense fallback={<LoadingSpinner />}>
             <AppRoutes />
@@ -119,7 +125,8 @@ const App = () => {
         </WebSocketProvider>
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
-    </HashRouter>
+      </HashRouter>
+    </Provider>
   );
 };
 
