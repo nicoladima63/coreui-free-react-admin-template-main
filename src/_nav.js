@@ -1,6 +1,6 @@
 import React from 'react'
 import CIcon from '@coreui/icons-react'
-import * as icon from '@coreui/icons';
+import * as icon from '@coreui/icons'
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
 
 const _nav = [
@@ -27,24 +27,6 @@ const _nav = [
     to: '/todo',
     icon: <CIcon icon={icon.cilCursor} customClassName="nav-icon" />,
   },
-
-  {
-    component: CNavTitle,
-    name: 'AUTH',
-  },
-  {
-    component: CNavItem,
-    name: 'Login',
-    to: '/login',
-    icon: <CIcon icon={icon.cilUser} customClassName="nav-icon" />,
-  },
-  {
-    component: CNavItem,
-    name: 'Logout',
-    to: '/logout',
-    icon: <CIcon icon={icon.cilUser} customClassName="nav-icon" />,
-  },
-
   {
     component: CNavTitle,
     name: 'FLUSSI DI LAVORO',
@@ -80,7 +62,22 @@ const _nav = [
     to: '/tasks',
     icon: <CIcon icon={icon.cilNotes} customClassName="nav-icon" />,
   },
-
+  {
+    component: CNavTitle,
+    name: 'AUTH',
+  },
+  {
+    component: CNavItem,
+    name: 'Login',
+    to: '/login',
+    icon: <CIcon icon={icon.cilUser} customClassName="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: 'Logout',
+    to: '/logout',
+    icon: <CIcon icon={icon.cilUser} customClassName="nav-icon" />,
+  },
 ]
 
 export default _nav

@@ -1,76 +1,84 @@
-import React, { useMemo } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { setSelectedFilter, setModalState } from './slices/dashboardSlice';
+import React, { useMemo } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
+import { setSelectedFilter, setModalState } from './slices/dashboardSlice'
 
-import { useQuery } from '@tanstack/react-query';
-import { CCard, CCardHeader, CCardBody, CCol, CRow, CSpinner, CAlert, CButton, CButtonGroup, CTooltip } from '@coreui/react';
-import CIcon from '@coreui/icons-react';
-import * as icon from '@coreui/icons';
+import { useQuery } from '@tanstack/react-query'
+import {
+  CCard,
+  CCardHeader,
+  CCardBody,
+  CCol,
+  CRow,
+  CSpinner,
+  CAlert,
+  CButton,
+  CButtonGroup,
+  CTooltip,
+} from '@coreui/react'
+import CIcon from '@coreui/icons-react'
+import * as icon from '@coreui/icons'
 
-import { useWebSocket } from '../../context/WebSocketContext';
-import { useWebSocketHandlers } from './hooks/useWebSocketHandlers';
-import { TasksService } from '../../services/api';
-import { QUERY_KEYS } from '../../constants/queryKeys';
+import { useWebSocket } from '../../context/WebSocketContext'
+import { useWebSocketHandlers } from './hooks/useWebSocketHandlers'
+import { TasksService } from '../../services/api'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
-import FilterGroupButton from '../../components/FilterGroupButton';
-import TaskWidget from './components/TaskWidget';
-import ModalNew from './components/ModalNew';
-import ModalSteps from './components/ModalSteps';
-import MessagesSection from './components/MessagesSection';
+import FilterGroupButton from '../../components/FilterGroupButton'
+import TaskWidget from './components/TaskWidget'
+import ModalNew from './components/ModalNew'
+import ModalSteps from './components/ModalSteps'
+import MessagesSection from './components/MessagesSection'
 
 const Dashboard = () => {
-  const { socket } = useWebSocket();
-  const auth = useSelector(state => state.auth);
-  const { selectedFilter, modalState } = useSelector(state => state.dashboard);
-  const dispatch = useDispatch();
+  const { socket } = useWebSocket()
+  const auth = useSelector((state) => state.auth)
+  const { selectedFilter, modalState } = useSelector((state) => state.dashboard)
+  const dispatch = useDispatch()
 
   // Setup WebSocket handlers
-  useWebSocketHandlers(socket, auth?.user?.id);
+  useWebSocketHandlers(socket, auth?.user?.id)
 
   // Query principale
   const {
     data: tasks = [],
     isLoading,
     error,
-    isFetching
+    isFetching,
   } = useQuery({
     queryKey: [QUERY_KEYS.TASKS],
     queryFn: TasksService.getTasksForDashboard,
     staleTime: 30000,
     cacheTime: 5 * 60 * 1000,
-  });
+  })
 
   // Filtraggio tasks
   const filteredTasks = useMemo(() => {
     switch (selectedFilter) {
       case 'completed':
-        return tasks.filter(task => task.completed);
+        return tasks.filter((task) => task.completed)
       case 'incomplete':
-        return tasks.filter(task => !task.completed);
+        return tasks.filter((task) => !task.completed)
       default:
-        return tasks;
+        return tasks
     }
-  }, [tasks, selectedFilter]);
+  }, [tasks, selectedFilter])
 
   const handleOpenSteps = (task) => {
-    dispatch(setModalState({ stepsVisible: true, selectedTask: task }));
-  };
+    dispatch(setModalState({ stepsVisible: true, selectedTask: task }))
+  }
 
   const handleCloseModal = (modalType) => {
-    dispatch(setModalState({ [modalType]: false, selectedTask: null }));
-  };
+    dispatch(setModalState({ [modalType]: false, selectedTask: null }))
+  }
 
   if (!auth?.user?.id) {
-    return null;
+    return null
   }
 
   return (
     <CRow>
       <CCol xs={12} xl={2}>
-        <MessagesSection
-          userId={auth.user.id}
-          onOpenSteps={handleOpenSteps}
-        />
+        <MessagesSection userId={auth.user.id} onOpenSteps={handleOpenSteps} />
       </CCol>
 
       <CCol xs={12} lg={10}>
@@ -120,8 +128,7 @@ const Dashboard = () => {
               <CRow xs={{ gutter: 4 }}>
                 {filteredTasks.map((task) => (
                   <CCol key={task.id} xs={12} sm={6} lg={3} xl={4} xxl={2}>
-                    <TaskWidget task={task} onOpenSteps={handleOpenSteps}
-                    />
+                    <TaskWidget task={task} onOpenSteps={handleOpenSteps} />
                   </CCol>
                 ))}
               </CRow>
@@ -130,10 +137,7 @@ const Dashboard = () => {
         </CCard>
       </CCol>
 
-      <ModalNew
-        visible={modalState.addVisible}
-        onClose={() => handleCloseModal('addVisible')}
-      />
+      <ModalNew visible={modalState.addVisible} onClose={() => handleCloseModal('addVisible')} />
 
       <ModalSteps
         visible={modalState.stepsVisible}
@@ -141,7 +145,7 @@ const Dashboard = () => {
         task={modalState.selectedTask}
       />
     </CRow>
-  );
-};
+  )
+}
 
-export default Dashboard;
+export default Dashboard
