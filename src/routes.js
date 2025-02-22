@@ -70,6 +70,7 @@ const routes = [
   { path: '/works', name: 'Works', element: Works, exact: true },
   { path: '/tasks', name: 'Tasks', element: Tasks, exact: true },
   { path: '/todo', name: 'Todo', element: Todo, exact: true },
+  { path: '/todo/new', name: 'Todo', element: Todo, exact: true },
   { path: '/test', name: 'Test', element: Test, exact: true },
   { path: '/provider', name: 'Provider', element: Provider, exact: true },
   { path: '/pcs', name: 'Pcs', element: Pcs, exact: true },

@@ -17,7 +17,13 @@ const _nav = [
   },
   {
     component: CNavItem,
-    name: 'Invia Messaggio',
+    name: 'Nuovo Messaggio',
+    to: '/todo/new',
+    icon: <CIcon icon={icon.cilCursor} customClassName="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: 'Messaggi',
     to: '/todo',
     icon: <CIcon icon={icon.cilCursor} customClassName="nav-icon" />,
   },

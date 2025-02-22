@@ -91,8 +91,12 @@ const ProvidersView = () => {
   };
 
   const handleSave = async (item) => {
+    alert('handlesave',JSON.stringify(item));
     if (item.id) {
-      await updateMutation.mutateAsync(item); // Modifica esistente
+      //await updateMutation.mutateAsync(item.id, item);
+      //await updateMutation.mutateAsync({ id: item.id, ...item });
+      //await updateMutation.mutateAsync({ id: item.id, data: item });
+      await updateMutation.mutateAsync(item); 
     } else {
       await createMutation.mutateAsync(item); // Creazione nuova
     }
@@ -177,6 +181,7 @@ const ProvidersView = () => {
                           <CButton color="warning" size="sm"
                             onClick={() => {
                               setSelectedItem(item);
+                              alert('selectedItem',selectedItem);
                               setIsModalVisible(true);
                             }}
                           >
@@ -204,7 +209,7 @@ const ProvidersView = () => {
           visible={isModalVisible}
           onClose={() => setIsModalVisible(false)}
           onSave={handleSave}
-          selectedItem={selectedItem} // Passa il work selezionato per l'aggiornamento
+          selectedItem={selectedItem} // Passa il provider selezionato per l'aggiornamento
         />
       )}
       <ConfirmDialog />

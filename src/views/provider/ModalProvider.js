@@ -16,6 +16,7 @@ import * as icon from '@coreui/icons';
 
 const ModalProvider = ({ visible, onClose, onSave, selectedItem }) => {
   const [formData, setFormData] = useState({
+    id:'',
     name: '',
     email: '',
     phone: ''
@@ -25,8 +26,10 @@ const ModalProvider = ({ visible, onClose, onSave, selectedItem }) => {
 
   useEffect(() => {
     if (selectedItem) {
+      alert('selectedItem modal',selectedItem);
       // Precompilazione campi in caso di modifica
       setFormData({
+        id: selectedItem.id || '',
         name: selectedItem.name || '',
         email: selectedItem.email || '',
         phone: selectedItem.phone || ''
@@ -44,9 +47,9 @@ const ModalProvider = ({ visible, onClose, onSave, selectedItem }) => {
     e.preventDefault();
     setError(null);
     setSuccess(false);
-
+    alert('handlesubmit',JSON.stringify(formData));
     try {
-      await onSave(formData); // Chiama il callback onSave con i dati del form
+      await onSave(JSON.stringify(formData)); // Chiama il callback onSave con i dati del form
       setSuccess(true);
       resetForm();
       onClose();

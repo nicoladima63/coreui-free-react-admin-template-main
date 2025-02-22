@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   CModal,
   CModalHeader,
@@ -11,16 +11,16 @@ import {
   CFormInput,
   CFormSelect,
   CFormTextarea,
-  CFormLabel
-} from '@coreui/react';
-import { TodoService,UsersService } from '../../services/api';
+  CFormLabel,
+} from '@coreui/react'
+import { TodoService, UsersService } from '../../services/api'
 
-import { useToast } from '../../hooks/useToast';
-import { QUERY_KEYS } from '../../constants/queryKeys';
-import { API_ERROR_MESSAGES } from '../../constants/errorMessages';
+import { useToast } from '../../hooks/useToast'
+import { QUERY_KEYS } from '../../constants/queryKeys'
+import { API_ERROR_MESSAGES } from '../../constants/errorMessages'
 
-const NewTodoModal = ({ visible, onClose,senderId }) => {
-  const queryClient = useQueryClient();
+const NewTodoModal = ({ visible, onClose, senderId }) => {
+  const queryClient = useQueryClient()
 
   const [formData, setFormData] = useState({
     senderId: senderId,
@@ -28,10 +28,10 @@ const NewTodoModal = ({ visible, onClose,senderId }) => {
     subject: '',
     message: '',
     priority: 'medium',
-    dueDate: ''
-  });
+    dueDate: '',
+  })
 
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError } = useToast()
 
   const {
     data: users = [],
@@ -39,49 +39,47 @@ const NewTodoModal = ({ visible, onClose,senderId }) => {
     error: error,
   } = useQuery({
     queryKey: [QUERY_KEYS.USERS],
-    queryFn: UsersService.getUsers
-  });
-
+    queryFn: UsersService.getUsers,
+  })
 
   // Mutation per creare un nuovo record
   const createMutation = useMutation({
     mutationFn: TodoService.createTodo,
     onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.TODOS]);
-      onClose();
+      queryClient.invalidateQueries([QUERY_KEYS.TODOS])
+      onClose()
     },
     onError: (error) => {
-      console.error('Errore durante la creazione del record:', error);
+      console.error('Errore durante la creazione del record:', error)
     },
-  });
-
+  })
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault()
     try {
-      await createMutation.mutateAsync(formData);
-      showSuccess('Messaggio inviato con successo');
-      onClose();
+      await createMutation.mutateAsync(formData)
+      showSuccess('Messaggio inviato con successo')
+      onClose()
       setFormData({
         senderId: '',
         recipientId: '',
         subject: '',
         message: '',
         priority: 'medium',
-        dueDate: ''
-      });
+        dueDate: '',
+      })
     } catch (error) {
-      showError(error.message || 'Errore durante l\'invio del messaggio');
+      showError(error.message || "Errore durante l'invio del messaggio")
     }
-  };
+  }
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
+    const { name, value } = e.target
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
-    }));
-  };
+      [name]: value,
+    }))
+  }
 
   return (
     <CModal visible={visible} onClose={onClose}>
@@ -99,7 +97,7 @@ const NewTodoModal = ({ visible, onClose,senderId }) => {
               required
             >
               <option value="">Seleziona destinatario...</option>
-              {users?.map(user => (
+              {users?.map((user) => (
                 <option key={user.id} value={user.id}>
                   {user.name}
                 </option>
@@ -131,11 +129,7 @@ const NewTodoModal = ({ visible, onClose,senderId }) => {
 
           <div className="mb-3">
             <CFormLabel>Priorità</CFormLabel>
-            <CFormSelect
-              name="priority"
-              value={formData.priority}
-              onChange={handleChange}
-            >
+            <CFormSelect name="priority" value={formData.priority} onChange={handleChange}>
               <option value="low">Bassa</option>
               <option value="medium">Media</option>
               <option value="high">Alta</option>
@@ -162,7 +156,7 @@ const NewTodoModal = ({ visible, onClose,senderId }) => {
         </CModalFooter>
       </CForm>
     </CModal>
-  );
-};
+  )
+}
 
-export default NewTodoModal;
+export default NewTodoModal

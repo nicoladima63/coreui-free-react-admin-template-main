@@ -1,6 +1,6 @@
 // SendMessage.js
 import React, { useRef, useState } from 'react'
-import { sendNotification } from '../../websocket'; // Assicurati che il percorso sia corretto
+import { sendNotification } from '../../websocket' // Assicurati che il percorso sia corretto
 import {
   CCard,
   CCardHeader,
@@ -18,11 +18,10 @@ import {
 } from '@coreui/react'
 
 const SendMessage = () => {
-
-  const [selectedClient, setSelectedClient] = useState('');
-  const [message, setMessage] = useState('');
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
+  const [selectedClient, setSelectedClient] = useState('')
+  const [message, setMessage] = useState('')
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
 
   const messageToast = (
     <CToast title="C'è posta per te">
@@ -80,16 +79,16 @@ const SendMessage = () => {
 
   const handleSendMessage = () => {
     if (selectedClient && message) {
-      sendNotification(JSON.stringify({ to: selectedClient, message }));
-      setToastMessage('Messaggio inviato!');
+      sendNotification(JSON.stringify({ to: selectedClient, message }))
+      setToastMessage('Messaggio inviato!')
       addToast(messageToast)
-      setMessage(''); // Resetta il messaggio dopo l'invio
+      setMessage('') // Resetta il messaggio dopo l'invio
     }
-  };
+  }
   const [clients, setClients] = useState([
     { id: 'client1', name: 'Client 1' },
-    { id: 'client2', name: 'Client 2' }
-  ]);
+    { id: 'client2', name: 'Client 2' },
+  ])
 
   return (
     <div>
@@ -121,7 +120,7 @@ const SendMessage = () => {
       </CButton>
       {ExampleToast()}
     </div>
-  );
-};
+  )
+}
 
-export default SendMessage;
+export default SendMessage

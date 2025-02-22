@@ -1,9 +1,10 @@
 // TodoMessages.js
-import React, { useState, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSelector } from 'react-redux';
-import { useToast } from '../../hooks/useToast';
-import { websocketService } from '../../services/websocket';
+import React, { useState, useEffect, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSelector } from 'react-redux'
+import { useToast } from '../../hooks/useToast'
+import { websocketService } from '../../services/websocket'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   CCard,
   CCardBody,
@@ -23,38 +24,42 @@ import {
   CBadge,
   CSpinner,
   CAlert,
-} from '@coreui/react';
-import CIcon from '@coreui/icons-react';
-import * as icon from '@coreui/icons';
-import NewTodoModal from './TodoModal';
-import { TodoService } from '../../services/api';
-import { useConfirmDialog } from '../../hooks/useConfirmDialog';
-import { QUERY_KEYS } from '../../constants/queryKeys';
-import { API_ERROR_MESSAGES } from '../../constants/errorMessages';
-import PriorityBadge from '../../components/PriorityBadge';
-import { format } from 'date-fns';
-import { it } from 'date-fns/locale';
+} from '@coreui/react'
+import CIcon from '@coreui/icons-react'
+import * as icon from '@coreui/icons'
+import NewTodoModal from './TodoModal'
+import { TodoService } from '../../services/api'
+import { useConfirmDialog } from '../../hooks/useConfirmDialog'
+import { QUERY_KEYS } from '../../constants/queryKeys'
+import { API_ERROR_MESSAGES } from '../../constants/errorMessages'
+import PriorityBadge from '../../components/PriorityBadge'
+import { format } from 'date-fns'
+import { it } from 'date-fns/locale'
 
 const TodoMessages = () => {
-  const [activeKey, setActiveKey] = useState(1);
-  const queryClient = useQueryClient();
-  const { showSuccess, showError,showInfo,showWarning } = useToast();
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const auth = useSelector(state => state.auth);
-  const currentUser = auth.user;
-  const [activeTab, setActiveTab] = useState('received');
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const [activeKey, setActiveKey] = useState(1)
+  const queryClient = useQueryClient()
+  const { showSuccess, showError, showInfo, showWarning } = useToast()
+  const [selectedItem, setSelectedItem] = useState(null)
+  //const [isModalVisible, setIsModalVisible] = useState(false)
+  const isModalVisible = location.pathname === '/todo/new'
+  const auth = useSelector((state) => state.auth)
+  const currentUser = auth.user
+  const [activeTab, setActiveTab] = useState('received')
 
   const {
     data: sentTodos = [],
     isLoading: loadingSent,
     error: sentError,
   } = useQuery({
-    queryKey: [QUERY_KEYS.TODOS, 'sent'],  // Differenziamo le chiavi
+    queryKey: [QUERY_KEYS.TODOS, 'sent'], // Differenziamo le chiavi
     queryFn: TodoService.getTodosSent,
-    staleTime: 30000,  // Aggiungiamo staleTime
-    cacheTime: 5 * 60 * 1000,  // E cacheTime come negli altri componenti
-  });
+    staleTime: 30000, // Aggiungiamo staleTime
+    cacheTime: 5 * 60 * 1000, // E cacheTime come negli altri componenti
+  })
 
   const {
     data: receivedTodos = [],
@@ -66,122 +71,134 @@ const TodoMessages = () => {
     enabled: !!auth.user?.id,
     staleTime: 30000,
     cacheTime: 5 * 60 * 1000,
-  });
+  })
+
+  const openModal = () => {
+    navigate('/todo/new')
+  }
+
+  const closeModal = () => {
+    navigate('/todo') // Torna alla pagina principale dei messaggi
+  }
 
   // Gestione WebSocket
   useEffect(() => {
     // Registra handler per nuovi messaggi
     const handleNewMessage = (message) => {
-      queryClient.invalidateQueries([QUERY_KEYS.TODOS, 'received']);
+      queryClient.invalidateQueries([QUERY_KEYS.TODOS, 'received'])
       if (message.priority === 'high') {
-        showWarning('Nuovo messaggio urgente');
+        showWarning('Nuovo messaggio urgente')
       }
-    };
+    }
 
     // Registra handler per aggiornamenti di stato
     const handleStatusUpdate = (update) => {
-      queryClient.invalidateQueries([QUERY_KEYS.TODOS]);
-    };
+      queryClient.invalidateQueries([QUERY_KEYS.TODOS])
+    }
 
-    websocketService.addHandler('newTodoMessage', handleNewMessage);
-    websocketService.addHandler('todoMessageRead', handleStatusUpdate);
+    websocketService.addHandler('newTodoMessage', handleNewMessage)
+    websocketService.addHandler('todoMessageRead', handleStatusUpdate)
 
     return () => {
-      websocketService.removeHandler('newTodoMessage', handleNewMessage);
-      websocketService.removeHandler('todoMessageRead', handleStatusUpdate);
-    };
-  }, [queryClient, showWarning]);
-
+      websocketService.removeHandler('newTodoMessage', handleNewMessage)
+      websocketService.removeHandler('todoMessageRead', handleStatusUpdate)
+    }
+  }, [queryClient, showWarning])
 
   // Mutation per aggiornare un record
   const updateMutation = useMutation({
     mutationFn: async ({ id, status }) => {
-      const result = await TodoService.updateTodoStatus({id, status});
+      const result = await TodoService.updateTodoStatus({ id, status })
       // Notifica via WebSocket
       websocketService.send({
         type: 'todoStatusUpdate',
         messageId: id,
         newStatus: status,
-        updatedBy: currentUser.id
-      });
+        updatedBy: currentUser.id,
+      })
 
-      return result;
+      return result
     },
     onMutate: async (variables) => {
       // Aggiorniamo ottimisticamente
-      const previousTodos = queryClient.getQueryData([QUERY_KEYS.TODOS, 'received', auth.user?.id]);
-      queryClient.setQueryData([QUERY_KEYS.TODOS, 'received', auth.user?.id], old =>
-        old.map(todo => todo.id === variables.id ? { ...todo, status: variables.status } : todo)
-      );
-      return { previousTodos };
+      const previousTodos = queryClient.getQueryData([QUERY_KEYS.TODOS, 'received', auth.user?.id])
+      queryClient.setQueryData([QUERY_KEYS.TODOS, 'received', auth.user?.id], (old) =>
+        old.map((todo) =>
+          todo.id === variables.id ? { ...todo, status: variables.status } : todo,
+        ),
+      )
+      return { previousTodos }
     },
     onError: (error, _, context) => {
       // Rollback in caso di errore
-      queryClient.setQueryData([QUERY_KEYS.TODOS, 'received', auth.user?.id], context.previousTodos);
-      showError('Errore durante l\'aggiornamento del record');
+      queryClient.setQueryData([QUERY_KEYS.TODOS, 'received', auth.user?.id], context.previousTodos)
+      showError("Errore durante l'aggiornamento del record")
     },
     onSuccess: () => {
-      showSuccess('Record aggiornato con successo');
-      queryClient.invalidateQueries([QUERY_KEYS.TODOS]);
-    }
-  });
+      showSuccess('Record aggiornato con successo')
+      queryClient.invalidateQueries([QUERY_KEYS.TODOS])
+    },
+  })
 
-  const handleStatusUpdate = useCallback(async (todoId, newStatus) => {
-    try {
-      await updateMutation.mutateAsync({ id: todoId, status: newStatus });
-    } catch (error) {
-      console.error('Error updating todo status:', error);
-      showError('Errore nell\'aggiornamento dello stato');
-    }
-  }, [updateMutation, showError]);
+  const handleStatusUpdate = useCallback(
+    async (todoId, newStatus) => {
+      try {
+        await updateMutation.mutateAsync({ id: todoId, status: newStatus })
+      } catch (error) {
+        console.error('Error updating todo status:', error)
+        showError("Errore nell'aggiornamento dello stato")
+      }
+    },
+    [updateMutation, showError],
+  )
 
   const getStatusBadge = (status) => {
     const statusColors = {
       pending: 'warning',
       read: 'info',
       in_progress: 'primary',
-      completed: 'success'
-    };
+      completed: 'success',
+    }
 
-    return (
-      <CBadge color={statusColors[status] || 'secondary'}>
-        {status.replace('_', ' ')}
-      </CBadge>
-    );
-  };
+    return <CBadge color={statusColors[status] || 'secondary'}>{status.replace('_', ' ')}</CBadge>
+  }
 
   const renderError = (error) => (
     <CAlert color="danger" className="text-center">
       {error?.message || API_ERROR_MESSAGES.GENERIC_ERROR}
     </CAlert>
-  );
+  )
 
   const renderLoading = () => (
     <div className="text-center">
       <CSpinner color="primary" />
     </div>
-  );
+  )
 
   const renderEmptyState = () => (
     <CAlert color="warning" className="text-center">
       Nessuna record disponibile.
     </CAlert>
-  );
+  )
 
   // Funzione per filtrare i messaggi
-  const getFilteredMessages = useCallback((messages) => {
-    if (!Array.isArray(messages)) return [];
+  const getFilteredMessages = useCallback(
+    (messages) => {
+      if (!Array.isArray(messages)) return []
 
-    return messages.map(message => ({
-      ...message,
-      isExpired: message.dueDate && new Date(message.dueDate) < new Date(),
-      isUrgent: message.priority === 'high' && !message.readAt,
-      canUpdate: message.status !== 'completed' &&
-        (activeKey === 'received' || message.senderId === currentUser.id)
-    }));
-  }, [activeKey, currentUser.id]);
+      return messages.map((message) => ({
+        ...message,
+        isExpired: message.dueDate && new Date(message.dueDate) < new Date(),
+        isUrgent: message.priority === 'high' && !message.readAt,
+        canUpdate:
+          message.status !== 'completed' &&
+          (activeKey === 'received' || message.senderId === currentUser.id),
+      }))
+    },
+    [activeKey, currentUser.id],
+  )
 
-  const isLoading = updateMutation.isLoading || loadingReceived || loadingSent;
+  const isLoading = updateMutation.isLoading || loadingReceived || loadingSent
 
   // Rendering della tabella con funzionalità aggiuntive
   const renderTodoTable = (todos) => (
@@ -216,7 +233,9 @@ const TodoMessages = () => {
               <div className="d-flex align-items-center">
                 {todo.subject}
                 {todo.isUrgent && (
-                  <CBadge color="danger" className="ms-2">Urgente</CBadge>
+                  <CBadge color="danger" className="ms-2">
+                    Urgente
+                  </CBadge>
                 )}
               </div>
             </CTableDataCell>
@@ -266,7 +285,7 @@ const TodoMessages = () => {
         ))}
       </CTableBody>
     </CTable>
-  );
+  )
 
   return (
     <CRow>
@@ -278,17 +297,13 @@ const TodoMessages = () => {
                 <strong>Todo Messages</strong>
               </CCol>
               <CCol xs="auto">
-                <CButton
-                  color="primary"
-                  onClick={() => setIsModalVisible(true)}
-                >
+                <CButton color="primary" onClick={() => setIsModalVisible(true)}>
                   Nuovo Messaggio
                 </CButton>
               </CCol>
             </CRow>
           </CCardHeader>
           <CCardBody>
-
             <CNav variant="tabs" role="tablist">
               <CNavItem>
                 <CNavLink
@@ -299,46 +314,33 @@ const TodoMessages = () => {
                 </CNavLink>
               </CNavItem>
               <CNavItem>
-                <CNavLink
-                  active={activeTab === 'sent'}
-                  onClick={() => setActiveTab('sent')}
-                >
+                <CNavLink active={activeTab === 'sent'} onClick={() => setActiveTab('sent')}>
                   Inviati
                 </CNavLink>
               </CNavItem>
             </CNav>
 
             <div className="tab-content pt-4">
-              {activeKey === 1 ? (
-                loadingReceived ? (
-                  renderLoading()
-                ) : receivedError ? (
-                  renderError(receivedError)
-                ) : (
-                  renderTodoTable(receivedTodos)
-                )
-              ) : (
-                loadingSent ? (
-                  renderLoading()
-                ) : sentError ? (
-                  renderError(sentError)
-                ) : (
-                  renderTodoTable(sentTodos)
-                )
-              )}
+              {activeKey === 1
+                ? loadingReceived
+                  ? renderLoading()
+                  : receivedError
+                    ? renderError(receivedError)
+                    : renderTodoTable(receivedTodos)
+                : loadingSent
+                  ? renderLoading()
+                  : sentError
+                    ? renderError(sentError)
+                    : renderTodoTable(sentTodos)}
             </div>
           </CCardBody>
         </CCard>
       </CCol>
       {isModalVisible && (
-        <NewTodoModal
-          visible={isModalVisible}
-          onClose={() => setIsModalVisible(false)}
-          senderId={currentUser.id}
-        />
+        <NewTodoModal visible={isModalVisible} onClose={closeModal} senderId={currentUser.id} />
       )}
     </CRow>
-  );
-};
+  )
+}
 
-export default TodoMessages;
+export default TodoMessages
