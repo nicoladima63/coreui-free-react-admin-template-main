@@ -11,6 +11,7 @@ import './scss/style.scss'
 import 'react-toastify/dist/ReactToastify.css'
 import axios from 'axios'
 
+
 // Configurazione di React Query
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,6 +81,11 @@ const AppRoutes = () => {
   )
 }
 
+
+import { Provider } from 'react-redux'; // Importa Provider
+import store from './store/store'; // Importa lo store corretto
+
+
 const App = () => {
   const { isColorModeSet, setColorMode } = useColorModes('coreui-free-react-admin-template-theme')
   const storedTheme = useSelector((state) => state.theme);
@@ -98,8 +104,8 @@ const App = () => {
   }, [])
 
   return (
-    <HashRouter>
-      <QueryClientProvider client={queryClient}>
+    <Provider store={store}>
+      <HashRouter>      <QueryClientProvider client={queryClient}>
         <WebSocketProvider>
           <Suspense fallback={<LoadingSpinner />}>
             <AppRoutes />
@@ -119,8 +125,15 @@ const App = () => {
         </WebSocketProvider>
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
+<<<<<<< HEAD
     </HashRouter>
   )
 }
+=======
+      </HashRouter>
+    </Provider>
+  );
+};
+>>>>>>> 246132449f63d015d2d94efccdf267d03b831c78
 
 export default App

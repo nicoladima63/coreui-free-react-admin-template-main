@@ -660,14 +660,16 @@ const WorksView = () => {
                       value={pageSize}
                       onChange={(e) => setPageSize(Number(e.target.value))}
                     >
-                      {[10, 20, 30, 50].map(size => (
+                      {[5, 10, 15, 20, 50].map(size => (
                         <option key={size} value={size}>
                           {size} per pagina
                         </option>
                       ))}
                     </select>
                     <span className="text-muted">
-                      {`${(page - 1) * pageSize + 1} - ${Math.min(page * pageSize, worksData.total)} di ${worksData.total}`}
+                      {worksData?.metadata?.total > 0
+                        ? `${(page - 1) * pageSize + 1} - ${Math.min(page * pageSize, worksData.metadata.total)} di ${worksData.metadata.total}`
+                        : 'Nessun dato disponibile'}
                     </span>
                   </div>
 
@@ -681,8 +683,8 @@ const WorksView = () => {
                     </CButton>
                     <CButton
                       color="primary"
-                      disabled={page === worksData.pages}
-                      onClick={() => setPage(p => Math.min(worksData.pages, p + 1))}
+                      disabled={page === worksData?.metadata?.pages}
+                      onClick={() => setPage(p => Math.min(worksData.metadata.pages, p + 1))}
                     >
                       <CIcon icon={icon.cilChevronRight} />
                     </CButton>
