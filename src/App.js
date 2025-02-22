@@ -11,7 +11,6 @@ import './scss/style.scss'
 import 'react-toastify/dist/ReactToastify.css'
 import axios from 'axios'
 
-
 // Configurazione di React Query
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,7 +52,9 @@ const AppRoutes = () => {
     if (token) {
       dispatch({
         type: 'LOGIN_SUCCESS',
-        user: {/* carica i dettagli dell'utente qui, se disponibili */ },
+        user: {
+          /* carica i dettagli dell'utente qui, se disponibili */
+        },
       })
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     } else {
@@ -81,17 +82,15 @@ const AppRoutes = () => {
   )
 }
 
-
-import { Provider } from 'react-redux'; // Importa Provider
-import store from './store/store'; // Importa lo store corretto
-
+import { Provider } from 'react-redux' // Importa Provider
+import store from './store/store' // Importa lo store corretto
 
 const App = () => {
   const { isColorModeSet, setColorMode } = useColorModes('coreui-free-react-admin-template-theme')
-  const storedTheme = useSelector((state) => state.theme);
+  const storedTheme = useSelector((state) => state.theme)
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.href.split('?')[1]);
+    const urlParams = new URLSearchParams(window.location.href.split('?')[1])
     const theme = urlParams.get('theme') && urlParams.get('theme').match(/^[A-Za-z0-9\s]+/)[0]
 
     if (theme) {
@@ -105,35 +104,30 @@ const App = () => {
 
   return (
     <Provider store={store}>
-      <HashRouter>      <QueryClientProvider client={queryClient}>
-        <WebSocketProvider>
-          <Suspense fallback={<LoadingSpinner />}>
-            <AppRoutes />
-            <ToastContainer
-              position="top"
-              autoClose={3000}
-              hideProgressBar={false}
-              newestOnTop
-              closeOnClick={true}
-              rtl={false}
-              pauseOnFocusLoss
-              draggable
-              pauseOnHover
-              theme="colored"
-            />
-          </Suspense>
-        </WebSocketProvider>
-        <ReactQueryDevtools initialIsOpen={false} />
-      </QueryClientProvider>
-<<<<<<< HEAD
-    </HashRouter>
-  )
-}
-=======
+      <HashRouter>
+        <QueryClientProvider client={queryClient}>
+          <WebSocketProvider>
+            <Suspense fallback={<LoadingSpinner />}>
+              <AppRoutes />
+              <ToastContainer
+                position="top"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop
+                closeOnClick={true}
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="colored"
+              />
+            </Suspense>
+          </WebSocketProvider>
+          <ReactQueryDevtools initialIsOpen={false} />
+        </QueryClientProvider>
       </HashRouter>
     </Provider>
-  );
-};
->>>>>>> 246132449f63d015d2d94efccdf267d03b831c78
+  )
+}
 
 export default App
