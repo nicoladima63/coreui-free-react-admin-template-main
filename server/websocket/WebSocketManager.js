@@ -3,7 +3,7 @@ const WebSocket = require('ws')
 const jwt = require('jsonwebtoken')
 const db = require('../models')
 const connectionManager = require('./ConnectionManager')
-const pushNotificationController = require('../controllers/pushNotificationController');
+const pushNotificationController = require('../controllers/pushNotificationController')
 class WebSocketManager {
   constructor() {
     this.wss = null
@@ -26,22 +26,22 @@ class WebSocketManager {
   }
 
   sendNotification(userId, notification) {
-    const connections = connectionManager.getUserConnections(userId);
+    const connections = connectionManager.getUserConnections(userId)
     if (connections.length > 0) {
       const message = JSON.stringify({
         type: 'notification',
-        ...notification
-      });
+        ...notification,
+      })
 
-      connections.forEach(conn => {
+      connections.forEach((conn) => {
         if (conn.ws.readyState === WebSocket.OPEN) {
-          conn.ws.send(message);
+          conn.ws.send(message)
         }
-      });
+      })
 
-      return true;
+      return true
     }
-    return false;
+    return false
   }
 
   async handleTodoMessage(fromUserId, message) {
@@ -88,21 +88,18 @@ class WebSocketManager {
         )
       }
 
-      await pushNotificationController.sendNotification(
-        message.recipientId,
-        {
-          title: `Nuovo messaggio da ${todoWithRelations.sender.name}`,
-          body: message.message,
-          icon: '/path/to/icon.png',
-          data: {
-            messageId: newTodo.id,
-            type: 'todoMessage',
-            url: `/dashboard?message=${newTodo.id}`
-          }
-        }
-      );
+      await pushNotificationController.sendNotification(message.recipientId, {
+        title: `Nuovo messaggio da ${todoWithRelations.sender.name}`,
+        body: message.message,
+        icon: '/path/to/icon.png',
+        data: {
+          messageId: newTodo.id,
+          type: 'todoMessage',
+          url: `/dashboard?message=${newTodo.id}`,
+        },
+      })
 
-      return newTodo;
+      return newTodo
     } catch (error) {
       console.error('Error handling todo message:', error)
       throw error
@@ -201,7 +198,7 @@ class WebSocketManager {
       ws.send(
         JSON.stringify({
           type: 'error',
-          error: 'Errore nell\'elaborazione del messaggio',
+          error: "Errore nell'elaborazione del messaggio",
         }),
       )
     }
