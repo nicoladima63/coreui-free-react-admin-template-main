@@ -93,16 +93,23 @@ class WebSocketManager {
       }
       connectionManager.sendToUser(fromUserId, messageToSender)
 
-      await pushNotificationController.sendNotification(message.recipientId, {
-        title: `Nuovo messaggio da ${todoWithRelations.sender.name}`,
-        body: message.message,
-        icon: '/path/to/icon.png',
-        data: {
-          messageId: newTodo.id,
-          type: 'todoMessage',
-          url: `/dashboard?message=${newTodo.id}`,
-        },
-      })
+      // Always send push notification regardless of WebSocket connection status
+      try {
+        await pushNotificationController.sendNotification(message.recipientId, {
+          title: `Nuovo messaggio da ${todoWithRelations.sender.name}`,
+          body: message.subject || message.message.substring(0, 100),
+          icon: '/path/to/icon.png',
+          data: {
+            messageId: newTodo.id,
+            type: 'todoMessage',
+            url: `/dashboard?message=${newTodo.id}`,
+            priority: message.priority,
+          },
+        })
+      } catch (pushError) {
+        console.error('Failed to send push notification:', pushError)
+        // Continue execution - push notification failure shouldn't break the flow
+      }
 
       return newTodo
     } catch (error) {
