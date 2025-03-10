@@ -16,15 +16,10 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import * as icon from '@coreui/icons'
-import { cilBell, cilEnvelopeOpen, cilEnvelopeClosed } from '@coreui/icons'
-
 import { UsersService, TodoService } from '../../../services/api'
 import { useToast } from '../../../hooks/useToast'
 import { useConfirmDialog } from '../../../hooks/useConfirmDialog'
 import { QUERY_KEYS } from '../../../constants/queryKeys'
-import { formatDistanceToNow } from 'date-fns'
-import { it } from 'date-fns/locale'
-import './MessagesSection.css'
 
 // eslint-disable-next-line react/display-name
 const MessageItem = React.memo(({ message, onClick, isLoading }) => {
@@ -46,19 +41,35 @@ const MessageItem = React.memo(({ message, onClick, isLoading }) => {
   }
 
   return (
-    <div className="message-item">
+    <div
+      className={`message-item p-2 border-bottom border-dark`}
+      style={{
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+      }}
+    >
       {/* Intestazione Accordion */}
       <div
         onClick={handleToggle}
         className={`
-          message-item-header
-          ${!isRead ? 'unread' : ''}
-          ${message.priority === 'high' ? 'high-priority' : 'normal-priority'}
-          ${isOpen ? 'open' : ''}
+          d-flex align-items-center justify-content-between
+          ${!isRead ? 'message-unread' : ''}
         `}
+        style={{
+          backgroundColor: isOpen ? 'var(--cui-dark-hover)' : 'var(--cui-dark)',
+          padding: '0.5rem',
+          borderLeft: '4px solid',
+          borderLeftColor:
+            message.priority === 'high' ? 'var(--cui-danger)' : 'var(--cui-primary-subtle)',
+        }}
       >
         {/* Badge */}
         <div className="d-flex align-items-center">
+          {!isRead && (
+            <CBadge className="me-2" color="info" shape="rounded-pill">
+              Nuovo
+            </CBadge>
+          )}
           {message.priority === 'high' && (
             <CBadge color="danger" shape="rounded-pill">
               Urgente
@@ -67,31 +78,37 @@ const MessageItem = React.memo(({ message, onClick, isLoading }) => {
         </div>
 
         {/* Titolo e Icona */}
-        <div className="d-flex align-items-center flex-grow-1 ms-2">
+        <div className="d-flex align-items-center flex-grow-1">
           <div className="me-3">
             <CIcon
               icon={message.type === 'step_notification' ? icon.cilBell : icon.cilEnvelopeLetter}
+              className="text-light"
               size="sm"
             />
           </div>
-          <h6 className="mb-0 flex-grow-1">
+          <h6 className="mb-0 text-light flex-grow-1">
             {message.type === 'step_notification' ? 'Notifica Step' : message.sender?.name}
           </h6>
-          <CIcon icon={isOpen ? icon.cilChevronTop : icon.cilChevronBottom} size="sm" />
         </div>
 
         {/* Icona di apertura/chiusura */}
+        <CIcon
+          icon={isOpen ? icon.cilChevronTop : icon.cilChevronBottom}
+          className="text-light"
+          size="sm"
+        />
       </div>
 
       {/* Contenuto Accordion */}
       {isOpen && (
-        <div className="message-item-content">
-          <small className="message-time">{formatTimeAgo(message.createdAt)}</small>
-          <p className="message-text">{message.message}</p>
-          <div className="message-action" onClick={handleClick}>
-            <CButton color="primary" size="sm" variant="outline">
-              {isLoading ? <CSpinner size="sm" /> : 'Segna come letto'}
-            </CButton>
+        <div
+          className="accordion-body mt-2 p-2"
+          style={{ backgroundColor: 'var(--cui-dark-subtle)' }}
+        >
+          <small className="text-medium-emphasis">{formatTimeAgo(message.createdAt)}</small>
+          <p className="mb-0 text-medium-emphasis">{message.message}</p>
+          <div className="d-flex align-items-center justify-content-end mt-2" onClick={handleClick}>
+            <button className="btn btn-primary btn-sm">Letto</button>
           </div>
         </div>
       )}
@@ -140,6 +157,10 @@ const formatTimeAgo = (date) => {
     minute: '2-digit',
   })
 }
+
+import { MessagesService } from '../../../services/api'
+import { formatDistanceToNow } from 'date-fns'
+import { it } from 'date-fns/locale'
 
 const MessagesSection = ({ userId, onOpenSteps }) => {
   const queryClient = useQueryClient()
@@ -233,7 +254,7 @@ const MessagesSection = ({ userId, onOpenSteps }) => {
         websocketService.removeHandler(event, handler)
       })
     }
-  }, [userId, queryClient, showSuccess])
+  }, [userId, queryClient, showSuccess]) // Rimosso isConnected dalle dipendenze
 
   // Query principale per i messaggi
   const {
@@ -252,14 +273,6 @@ const MessagesSection = ({ userId, onOpenSteps }) => {
       showError('Errore nel caricamento dei messaggi')
     },
   })
-  // Format the date in a human-readable way
-  const formatDate = (dateString) => {
-    try {
-      return formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: it })
-    } catch (e) {
-      return 'Data non valida'
-    }
-  }
 
   // Mutation per segnare come letto
   const markAsReadMutation = useMutation({
@@ -358,46 +371,90 @@ const MessagesSection = ({ userId, onOpenSteps }) => {
   }, [todos])
 
   return (
-    <CCard className="mb-4 message-section-card">
-      <CCardHeader className="d-flex justify-content-between align-items-center">
-        <h5 className="mb-0">
-          <CIcon icon={cilBell} className="me-2 text-primary" />
-          Notifiche
-        </h5>
-        {unreadCount > 0 && (
-          <CBadge color="primary" shape="rounded-pill">
-            {unreadCount}
+    <CCard className="h-100">
+      <CCardHeader>
+        {/* Prima riga: titolo e bottone filtro */}
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <h6 className="mb-0">Centro Notifiche</h6>
+          <CButton
+            color="link"
+            onClick={() => setShowReadMessages((prev) => !prev)}
+            className="p-0" // Rimuove il padding extra del bottone
+          >
+            {showReadMessages ? 'da leggere' : 'tutti'}
+          </CButton>
+        </div>
+
+        {/* Seconda riga: badge di connessione e contatore messaggi */}
+        <div className="d-flex justify-content-between align-items-center">
+          {unreadCount > 0 && (
+            <CBadge color="primary" shape="rounded-pill" className="px-2">
+              {unreadCount} {unreadCount === 1 ? 'nuovo' : 'nuovi'}
+            </CBadge>
+          )}
+
+          <CBadge
+            color={isConnected ? 'success' : 'danger'}
+            className="d-flex align-items-center px-2"
+            shape="rounded-pill"
+          >
+            <CIcon
+              icon={isConnected ? icon.cilCheckCircle : icon.cilWarning}
+              size="sm"
+              className="me-1"
+            />
+            {isConnected ? 'Online' : 'Offline'}
           </CBadge>
-        )}
+        </div>
       </CCardHeader>
-      <CCardBody className="p-0">
+      <div className="messages-container position-relative">
         {isLoading ? (
-          <div className="text-center p-3">
-            <CSpinner color="primary" size="sm" />
+          <div className="text-center p-4">
+            <CSpinner className="mb-2" />
+            <p className="text-medium-emphasis mb-0">Caricamento messaggi...</p>
           </div>
         ) : error ? (
           <CAlert color="danger" className="m-3">
-            Errore nel caricamento delle notifiche
+            <CIcon icon={icon.cilBan} className="me-2" />
+            {error.message || 'Errore nel caricamento dei messaggi'}
           </CAlert>
         ) : sortedTodos.length === 0 ? (
-          <CAlert color="info" className="m-3">
-            Nessuna notifica
-          </CAlert>
+          <div className="text-center p-4">
+            <div className="text-medium-emphasis mb-3">
+              <CIcon icon={icon.cilInbox} size="3xl" className="opacity-50" />
+            </div>
+            <h6>Nessun messaggio</h6>
+            <p className="text-medium-emphasis small mb-0">
+              {isConnected ? 'I nuovi messaggi appariranno qui' : 'Riconnessione in corso...'}
+            </p>
+          </div>
         ) : (
-          <div className="message-list">
-            {sortedTodos.map((todo) => (
+          <div className="messages-list">
+            {sortedTodos.map((message) => (
               <MessageItem
-                key={todo.id}
-                message={todo}
+                key={message.id}
+                message={message}
                 onClick={handleMessageClick}
-                isLoading={processingMessageId === todo.id}
+                isLoading={processingMessageId === message.id}
               />
             ))}
           </div>
         )}
-      </CCardBody>
+        {isFetching && !isLoading && (
+          <div className="text-center p-2 border-top">
+            <small className="text-medium-emphasis">
+              <CSpinner size="sm" className="me-2" />
+              Aggiornamento...
+            </small>
+          </div>
+        )}
+      </div>
     </CCard>
   )
 }
 
+MessagesSection.propTypes = {
+  userId: PropTypes.string.isRequired,
+  onOpenSteps: PropTypes.func.isRequired,
+}
 export default MessagesSection
