@@ -30,35 +30,13 @@ self.addEventListener('push', (event) => {
   }
 })
 
-/* self.addEventListener('notificationclick', (event) => {
-  event.notification.close()
-
-  if (event.action === 'close') return
-
-  // Se clicchiamo la notifica o il pulsante "Apri"
-  if (event.notification.data?.url) {
-    event.waitUntil(
-      clients.matchAll({ type: 'window' }).then((windowClients) => {
-        // Se c'è già una finestra aperta dell'app
-        for (const client of windowClients) {
-          if (client.url.includes('/dashboard') && 'focus' in client) {
-            return client.focus()
-          }
-        }
-        // Altrimenti apri una nuova finestra
-        return clients.openWindow(event.notification.data.url)
-      }),
-    )
-  }
-})
- */
-
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
   if (event.action === 'close') return
 
-  const urlToOpen = 'http://serverdima.local:8080/#/dashboard'
+  // Use the URL from notification data or fallback to dashboard
+  const urlToOpen = event.notification.data?.url || '/dashboard'
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
