@@ -13,7 +13,20 @@ class WebSocketManager {
     this.wss = new WebSocket.Server({
       server,
       verifyClient: (info, cb) => {
-        cb(true)
+        try {
+          // Extract token from URL
+          const token = new URLSearchParams(info.req.url.slice(1)).get('token')
+          if (!token) {
+            return cb(false, 4001, 'Token non fornito')
+          }
+          
+          // Verify token
+          jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
+          return cb(true)
+        } catch (error) {
+          console.error('WebSocket verification error:', error)
+          return cb(false, 4002, 'Autenticazione fallita')
+        }
       },
     })
 
@@ -65,28 +78,20 @@ class WebSocketManager {
         ],
       })
 
-      // Invia al destinatario
-      const recipientWs = this.clients.get(message.recipientId)
-      if (recipientWs) {
-        recipientWs.send(
-          JSON.stringify({
-            type: 'newTodoMessage',
-            message: todoWithRelations,
-          }),
-        )
+      // Invia al destinatario usando connectionManager invece di this.clients
+      const messageToRecipient = {
+        type: 'newTodoMessage',
+        message: todoWithRelations,
       }
+      connectionManager.sendToUser(message.recipientId, messageToRecipient)
 
-      // Conferma al mittente
-      const senderWs = this.clients.get(fromUserId)
-      if (senderWs) {
-        senderWs.send(
-          JSON.stringify({
-            type: 'messageSent',
-            messageId: newTodo.id,
-            timestamp: newTodo.createdAt,
-          }),
-        )
+      // Conferma al mittente usando connectionManager invece di this.clients
+      const messageToSender = {
+        type: 'messageSent',
+        messageId: newTodo.id,
+        timestamp: newTodo.createdAt,
       }
+      connectionManager.sendToUser(fromUserId, messageToSender)
 
       await pushNotificationController.sendNotification(message.recipientId, {
         title: `Nuovo messaggio da ${todoWithRelations.sender.name}`,
