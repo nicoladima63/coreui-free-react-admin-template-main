@@ -1,5 +1,7 @@
 {
     "cSpell.words": [
         "coreui"
-    ]
+    ],
+    "IDX.aI.enableInlineCompletion": true,
+    "IDX.aI.enableCodebaseIndexing": true
 }
